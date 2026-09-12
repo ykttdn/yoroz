@@ -9,8 +9,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "npm run cf-typegen && vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "hono": "4.13.7",
