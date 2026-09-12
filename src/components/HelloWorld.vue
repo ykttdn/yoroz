@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import heroImg from '../assets/hero.png'
 import viteLogo from '../assets/vite.svg'
 import vueLogo from '../assets/vue.svg'
 
 const count = ref(0)
+const apiMessage = ref('')
+
+onMounted(async () => {
+  const res = await fetch('/api/hello')
+  const data = (await res.json()) as { message: string }
+  apiMessage.value = data.message
+})
 </script>
 
 <template>
@@ -21,6 +28,7 @@ const count = ref(0)
     <button type="button" class="counter" @click="count++">
       Count is {{ count }}
     </button>
+    <p>{{ apiMessage }}</p>
   </section>
 
   <div class="ticks"></div>
