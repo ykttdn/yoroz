@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yoroz",
+  "main": "./worker/index.ts",
+  // The newest date the bundled workerd (1.20260903.1) supports; a later date fails to start
+  "compatibility_date": "2026-09-10",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  }
+}
