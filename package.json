@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "npm run cf-typegen && vue-tsc -b && vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
