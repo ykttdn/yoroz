@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 
+import api from './api'
+
 const app = new Hono()
 
-app.get('/api/hello', c => c.json({ message: 'Hello from Hono on Workers' }))
+app.route('/api', api)
 
 export default app
