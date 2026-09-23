@@ -1,0 +1,6 @@
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# openssl rand -base64 32
+AUTH_SECRET=
+# Comma-separated
+ALLOWED_EMAILS=

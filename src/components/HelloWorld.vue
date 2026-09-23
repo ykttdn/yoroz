@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
+import { api } from '../api'
 import heroImg from '../assets/hero.png'
 import viteLogo from '../assets/vite.svg'
 import vueLogo from '../assets/vue.svg'
@@ -9,8 +10,8 @@ const count = ref(0)
 const apiMessage = ref('')
 
 onMounted(async () => {
-  const res = await fetch('/api/hello')
-  const data = (await res.json()) as { message: string }
+  const res = await api.hello.$get()
+  const data = await res.json()
   apiMessage.value = data.message
 })
 </script>

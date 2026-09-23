@@ -11,7 +11,11 @@
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
-    "noEmit": true,
+    // Emits .d.ts so the SPA can import the API's type without type-checking the Worker's
+    // sources, whose global Env exists only in this project
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/worker-types",
     "strict": true,
 
     /* Linting */
