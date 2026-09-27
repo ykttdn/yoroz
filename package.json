@@ -13,12 +13,15 @@
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run"
   },
   "dependencies": {
     "@hono/oauth-providers": "0.9.0",
+    "drizzle-orm": "0.45.2",
     "hono": "4.13.8",
     "vue": "3.5.43",
     "vue-router": "5.3.1"
@@ -32,6 +35,7 @@
     "@vitejs/plugin-vue": "6.0.9",
     "@vue/test-utils": "2.5.1",
     "@vue/tsconfig": "0.9.1",
+    "drizzle-kit": "0.31.10",
     "eslint": "10.11.0",
     "eslint-plugin-simple-import-sort": "14.0.0",
     "eslint-plugin-vue": "10.11.0",

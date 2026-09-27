@@ -9,6 +9,14 @@
     // /auth/* must reach the Worker, or the SPA fallback would answer the OAuth routes with index.html
     "run_worker_first": ["/api/*", "/auth/*"]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yoroz",
+      "database_id": "f0319ce1-8b6f-48ee-8814-cd2b22894b61",
+      "migrations_dir": "migrations"
+    }
+  ],
   // Listed here so `wrangler types` can type them even where no .dev.vars exists (CI)
   "secrets": {
     "required": ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AUTH_SECRET", "ALLOWED_EMAILS"]
