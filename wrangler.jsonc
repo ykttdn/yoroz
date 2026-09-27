@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "yoroz",
   "main": "./worker/index.ts",
-  // The newest date the bundled workerd (1.20260903.1) supports; a later date fails to start
+  // Must not be later than the newest date the bundled workerd supports, or it fails to start
   "compatibility_date": "2026-09-10",
   "assets": {
     "not_found_handling": "single-page-application",
