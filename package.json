@@ -31,7 +31,7 @@
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.5.1",
     "@vue/tsconfig": "0.9.1",
-    "eslint": "10.10.0",
+    "eslint": "10.11.0",
     "eslint-plugin-simple-import-sort": "14.0.0",
     "eslint-plugin-vue": "10.11.0",
     "happy-dom": "20.14.5",
