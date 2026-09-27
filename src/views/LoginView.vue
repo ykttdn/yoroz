@@ -4,12 +4,12 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-const errorMessages: Record<string, string> = {
-  cancelled: 'ログインがキャンセルされました。',
-  forbidden: 'このアカウントではログインできません。',
-  failed: 'ログインに失敗しました。もう一度お試しください。',
-}
-const error = computed(() => errorMessages[String(route.query.error)])
+const errorMessages = new Map([
+  ['cancelled', 'ログインがキャンセルされました。'],
+  ['forbidden', 'このアカウントではログインできません。'],
+  ['failed', 'ログインに失敗しました。もう一度お試しください。'],
+])
+const error = computed(() => errorMessages.get(String(route.query.error)))
 </script>
 
 <template>
