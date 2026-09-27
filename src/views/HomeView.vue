@@ -5,7 +5,7 @@ import HelloWorld from '../components/HelloWorld.vue'
 
 <template>
   <header v-if="currentUser">
-    <span>{{ currentUser.name }} ({{ currentUser.email }})</span>
+    <span>{{ currentUser.name || currentUser.email }}</span>
     <form
       method="post"
       action="/auth/logout"
