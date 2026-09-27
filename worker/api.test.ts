@@ -1,9 +1,9 @@
+import { env } from 'cloudflare:workers'
 import { sign } from 'hono/jwt'
 import { describe, expect, it } from 'vitest'
 
 import app from './index'
 import { SESSION_COOKIE } from './session'
-import { env } from './test-env'
 
 const now = () => Math.floor(Date.now() / 1000)
 
