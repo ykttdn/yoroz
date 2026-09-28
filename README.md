@@ -21,8 +21,18 @@ The Worker's types live in `worker-configuration.d.ts`, which is generated rathe
 2. Copy `.dev.vars.example` to `.dev.vars` and fill it in. Generate `AUTH_SECRET` with `openssl rand -base64 32`. `npm run preview` reads the copy that `npm run build` puts in `dist/`, so rebuild after editing `.dev.vars`.
 3. Set the same four values on the deployed Worker once with `npx wrangler secret put <NAME>`. The GitHub Actions deploy does not upload secrets.
 
+### Database
+
+The Worker uses a D1 database bound as `DB`, accessed through Drizzle. The schema lives in `worker/db/schema.ts` and the migrations generated from it in `migrations/`.
+
+- After editing the schema, run `npm run db:generate` to write a new migration, and read the generated SQL before committing it. drizzle-kit can express some changes (a rename, for instance) as a drop and re-create, which loses data.
+- Run `npm run db:migrate:local` to apply migrations to the local database that `npm run dev` uses. The tests apply them to their own database, so they need no setup.
+- The deploy workflow applies migrations to the production database before deploying the Worker. Migrations must therefore keep the previously deployed code working, since it keeps serving requests until the deploy finishes.
+
+The production database is named `yoroz`, and its `database_id` is in `wrangler.jsonc`. The `CLOUDFLARE_API_TOKEN` used by GitHub Actions needs the D1 Edit permission in addition to what deploying a Worker requires.
+
 ### Deploying
 
-`npm run deploy` publishes to https://yoroz.ykttdn.workers.dev. It builds first so that a stale `dist/` is never uploaded; `wrangler deploy` on its own would ship whatever was built last.
+`npm run deploy` publishes to https://yoroz.ykttdn.workers.dev. It builds first so that a stale `dist/` is never uploaded; `wrangler deploy` on its own would ship whatever was built last. It does not apply migrations; when deploying by hand, run `npx wrangler d1 migrations apply DB --remote` first.
 
 Authenticate once with `npx wrangler login`.
