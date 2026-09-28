@@ -8,7 +8,7 @@ import { SESSION_COOKIE } from './session'
 const now = () => Math.floor(Date.now() / 1000)
 
 const signedSession = (payload: Record<string, unknown> = {}, secret = env.AUTH_SECRET) =>
-  sign({ sub: 'google-id', email: 'alice@example.com', name: 'Alice', exp: now() + 60, ...payload }, secret, 'HS256')
+  sign({ sub: '1', email: 'alice@example.com', name: 'Alice', exp: now() + 60, ...payload }, secret, 'HS256')
 
 const request = (path: string, { session }: { session?: string } = {}) =>
   app.request(path, session === undefined ? {} : { headers: { Cookie: `${SESSION_COOKIE}=${session}` } }, env)
