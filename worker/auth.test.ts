@@ -1,9 +1,9 @@
+import { env } from 'cloudflare:workers'
 import { verify } from 'hono/jwt'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 
 import app from './index'
 import { SESSION_COOKIE, SESSION_MAX_AGE } from './session'
-import { env } from './test-env'
 
 const googleUser = {
   id: 'google-id',
@@ -113,12 +113,12 @@ describe('/auth', () => {
 
     it('redirects to the login page and logs why when Google sign-in fails', async () => {
       stubGoogle({ token: { error: 'invalid_grant' } })
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const res = await callback()
 
       expect(res.headers.get('Location')).toBe('/login?error=failed')
-      expect(console.error).toHaveBeenCalled()
+      expect(consoleError).toHaveBeenCalled()
     })
 
     it('forbids a user whose email is not allowed and drops the existing session', async () => {
