@@ -1,9 +1,11 @@
 import { googleAuth } from '@hono/oauth-providers/google'
+import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
 import { deleteCookie, setCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { sign } from 'hono/jwt'
 
+import { users } from './db/schema'
 import { isAllowedEmail, SESSION_COOKIE, SESSION_MAX_AGE } from './session'
 import type { AppEnv } from './types'
 
@@ -47,8 +49,17 @@ auth.get(
       return c.redirect('/login?error=forbidden')
     }
 
+    const name = googleUser.name ?? ''
+    const db = drizzle(c.env.DB)
+    // The Google account is identified by its ID, since the email and name can change on Google's side
+    const [user] = await db.insert(users)
+      .values({ googleSub: googleUser.id, email: googleUser.email, name })
+      .onConflictDoUpdate({ target: users.googleSub, set: { email: googleUser.email, name } })
+      .returning({ id: users.id })
+
     const token = await sign(
-      { sub: googleUser.id, email: googleUser.email, name: googleUser.name ?? '', exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE },
+      // JWT expects sub to be a string
+      { sub: String(user.id), email: googleUser.email, name, exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE },
       c.env.AUTH_SECRET,
       'HS256',
     )

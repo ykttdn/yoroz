@@ -1,9 +1,13 @@
 import { env } from 'cloudflare:workers'
+import { drizzle } from 'drizzle-orm/d1'
 import { verify } from 'hono/jwt'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 
+import { users } from './db/schema'
 import app from './index'
 import { SESSION_COOKIE, SESSION_MAX_AGE } from './session'
+
+const db = drizzle(env.DB)
 
 const googleUser = {
   id: 'google-id',
@@ -36,7 +40,16 @@ const callback = ({ session }: { session?: string } = {}) => {
   return app.request('/auth/google?code=code&state=state', { headers: { Cookie: cookie } }, env)
 }
 
+const jwtPayload = (res: Response) => {
+  const token = res.headers.getSetCookie().find(c => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0].split('=')[1]
+  return verify(token, env.AUTH_SECRET, 'HS256')
+}
+
 describe('/auth', () => {
+  beforeEach(async () => {
+    await db.delete(users)
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -75,7 +88,52 @@ describe('/auth', () => {
       expect(cookie).toMatch(/; Path=\/(;|$)/)
     })
 
-    it('puts the Google user into a session signed with AUTH_SECRET', async () => {
+    it('creates a user on the first sign-in', async () => {
+      const now = new Date('2026-01-01T00:00:00Z')
+      vi.setSystemTime(now)
+      onTestFinished(() => {
+        vi.useRealTimers()
+      })
+      stubGoogle()
+
+      await callback()
+
+      expect(await db.select().from(users)).toEqual([{
+        id: expect.any(Number),
+        googleSub: googleUser.id,
+        email: googleUser.email,
+        name: googleUser.name,
+        createdAt: now,
+        updatedAt: now,
+      }])
+    })
+
+    it('updates the user instead of creating another on a later sign-in', async () => {
+      const firstSignIn = new Date('2026-01-01T00:00:00Z')
+      const laterSignIn = new Date('2026-02-01T00:00:00Z')
+      onTestFinished(() => {
+        vi.useRealTimers()
+      })
+      vi.setSystemTime(firstSignIn)
+      stubGoogle()
+      await callback()
+      const [created] = await db.select().from(users)
+
+      vi.setSystemTime(laterSignIn)
+      stubGoogle({ user: { email: 'bob@example.com', name: 'Bob' } })
+      await callback()
+
+      expect(await db.select().from(users)).toEqual([{
+        id: created.id,
+        googleSub: googleUser.id,
+        email: 'bob@example.com',
+        name: 'Bob',
+        createdAt: firstSignIn,
+        updatedAt: laterSignIn,
+      }])
+    })
+
+    it('puts the user into a session signed with AUTH_SECRET', async () => {
       const now = new Date('2026-01-01T00:00:00Z')
       vi.setSystemTime(now)
       onTestFinished(() => {
@@ -85,24 +143,23 @@ describe('/auth', () => {
 
       const res = await callback()
 
-      const token = res.headers.getSetCookie().find(c => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0].split('=')[1]
-      const payload = await verify(token, env.AUTH_SECRET, 'HS256')
-      expect(payload).toEqual({
-        sub: googleUser.id,
+      const [user] = await db.select().from(users)
+      expect(await jwtPayload(res)).toEqual({
+        sub: String(user.id),
         email: googleUser.email,
         name: googleUser.name,
         exp: now.getTime() / 1000 + SESSION_MAX_AGE,
       })
     })
 
-    it('puts an empty name into the session when Google omits the name', async () => {
+    it('uses an empty name when Google omits the name', async () => {
       stubGoogle({ user: { name: undefined } })
 
       const res = await callback()
 
-      const token = res.headers.getSetCookie().find(c => c.startsWith(`${SESSION_COOKIE}=`))!.split(';')[0].split('=')[1]
-      const payload = await verify(token, env.AUTH_SECRET, 'HS256')
-      expect(payload.name).toBe('')
+      expect((await jwtPayload(res)).name).toBe('')
+      const [user] = await db.select().from(users)
+      expect(user.name).toBe('')
     })
 
     it('redirects to the login page when the user cancels on Google', async () => {
@@ -128,6 +185,7 @@ describe('/auth', () => {
 
       expect(res.headers.get('Location')).toBe('/login?error=forbidden')
       expect(res.headers.get('Set-Cookie')).toContain(`${SESSION_COOKIE}=; Max-Age=0;`)
+      expect(await db.select().from(users)).toEqual([])
     })
 
     it('forbids a user whose email is not verified and drops the existing session', async () => {
@@ -137,6 +195,7 @@ describe('/auth', () => {
 
       expect(res.headers.get('Location')).toBe('/login?error=forbidden')
       expect(res.headers.get('Set-Cookie')).toContain(`${SESSION_COOKIE}=; Max-Age=0;`)
+      expect(await db.select().from(users)).toEqual([])
     })
 
     it('forbids a user without an email and drops the existing session', async () => {
@@ -146,6 +205,7 @@ describe('/auth', () => {
 
       expect(res.headers.get('Location')).toBe('/login?error=forbidden')
       expect(res.headers.get('Set-Cookie')).toContain(`${SESSION_COOKIE}=; Max-Age=0;`)
+      expect(await db.select().from(users)).toEqual([])
     })
   })
 

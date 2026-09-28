@@ -5,6 +5,6 @@ export const users = sqliteTable('users', {
   googleSub: text('google_sub').notNull().unique(),
   email: text().notNull(),
   name: text().notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()).$onUpdate(() => new Date()),
 })
