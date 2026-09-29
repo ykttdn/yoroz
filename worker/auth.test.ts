@@ -178,6 +178,20 @@ describe('/auth', () => {
       expect(consoleError).toHaveBeenCalled()
     })
 
+    it('redirects to the login page and logs why when saving the user fails', async () => {
+      stubGoogle()
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(env.DB, 'prepare').mockImplementation(() => {
+        throw new Error('D1 is unavailable')
+      })
+
+      const res = await callback()
+
+      expect(res.headers.get('Location')).toBe('/login?error=failed')
+      expect(res.headers.getSetCookie().some(c => c.startsWith(`${SESSION_COOKIE}=`))).toBe(false)
+      expect(consoleError).toHaveBeenCalled()
+    })
+
     it('forbids a user whose email is not allowed and drops the existing session', async () => {
       stubGoogle({ user: { email: 'carol@example.com' } })
 
