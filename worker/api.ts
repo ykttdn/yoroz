@@ -14,7 +14,7 @@ const api = new Hono<AppEnv>()
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    c.set('user', { sub: String(payload.sub), email: String(payload.email), name: String(payload.name) })
+    c.set('user', { id: Number(payload.sub), email: String(payload.email), name: String(payload.name) })
     await next()
   })
   .get('/me', (c) => {
