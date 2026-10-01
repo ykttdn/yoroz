@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { sign } from 'hono/jwt'
+import { testClient } from 'hono/testing'
 import { describe, expect, it } from 'vitest'
 
 import app from './index'
@@ -10,26 +11,26 @@ const now = () => Math.floor(Date.now() / 1000)
 const signedSession = (payload: Record<string, unknown> = {}, secret = env.AUTH_SECRET) =>
   sign({ sub: '1', email: 'alice@example.com', name: 'Alice', exp: now() + 60, ...payload }, secret, 'HS256')
 
-const request = (path: string, { session }: { session?: string } = {}) =>
-  app.request(path, session === undefined ? {} : { headers: { Cookie: `${SESSION_COOKIE}=${session}` } }, env)
+const client = ({ session }: { session?: string } = {}) =>
+  testClient(app, env, undefined, session === undefined ? {} : { headers: { Cookie: `${SESSION_COOKIE}=${session}` } })
 
 describe('/api', () => {
   describe('with an invalid session', () => {
     it('rejects a request without a session cookie', async () => {
-      const res = await request('/api/me')
+      const res = await client().api.me.$get()
 
       expect(res.status).toBe(401)
       expect(await res.json()).toEqual({ error: 'Unauthorized' })
     })
 
     it('rejects a token that is not a JWT', async () => {
-      const res = await request('/api/me', { session: 'not-a-jwt' })
+      const res = await client({ session: 'not-a-jwt' }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
 
     it('rejects a token signed with another secret', async () => {
-      const res = await request('/api/me', { session: await signedSession({}, 'another-secret') })
+      const res = await client({ session: await signedSession({}, 'another-secret') }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
@@ -38,25 +39,25 @@ describe('/api', () => {
       const [header, , signature] = (await signedSession()).split('.')
       const [, payload] = (await signedSession({ email: 'bob@example.com', name: 'Bob' })).split('.')
 
-      const res = await request('/api/me', { session: `${header}.${payload}.${signature}` })
+      const res = await client({ session: `${header}.${payload}.${signature}` }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
 
     it('rejects an expired token', async () => {
-      const res = await request('/api/me', { session: await signedSession({ exp: now() - 1 }) })
+      const res = await client({ session: await signedSession({ exp: now() - 1 }) }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
 
     it('rejects a token without an email', async () => {
-      const res = await request('/api/me', { session: await signedSession({ email: undefined }) })
+      const res = await client({ session: await signedSession({ email: undefined }) }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
 
     it('rejects a token whose email is no longer allowed', async () => {
-      const res = await request('/api/me', { session: await signedSession({ email: 'carol@example.com' }) })
+      const res = await client({ session: await signedSession({ email: 'carol@example.com' }) }).api.me.$get()
 
       expect(res.status).toBe(401)
     })
@@ -64,7 +65,7 @@ describe('/api', () => {
 
   describe('GET /api/me', () => {
     it('returns the signed-in user', async () => {
-      const res = await request('/api/me', { session: await signedSession() })
+      const res = await client({ session: await signedSession() }).api.me.$get()
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ email: 'alice@example.com', name: 'Alice' })
@@ -73,7 +74,7 @@ describe('/api', () => {
 
   describe('GET /api/hello', () => {
     it('returns a message to a signed-in user', async () => {
-      const res = await request('/api/hello', { session: await signedSession() })
+      const res = await client({ session: await signedSession() }).api.hello.$get()
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ message: 'Hello from Hono on Workers' })
