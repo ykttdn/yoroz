@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { monthRange } from './datetime'
+import { isMinuteTimestamp, monthRange } from './datetime'
 
 describe('monthRange', () => {
   it('returns the instants a month in Japan time covers', () => {
@@ -27,5 +27,33 @@ describe('monthRange', () => {
     ['the last month Date can start', '9999-12'],
   ])('rejects %s', (_, month) => {
     expect(monthRange(month)).toBeUndefined()
+  })
+})
+
+describe('isMinuteTimestamp', () => {
+  it('accepts a UTC timestamp on the minute', () => {
+    expect(isMinuteTimestamp('2026-09-27T01:30:00.000Z')).toBe(true)
+  })
+
+  it('accepts the last minute of November 9999 in Japan time', () => {
+    expect(isMinuteTimestamp('9999-11-30T14:59:00.000Z')).toBe(true)
+  })
+
+  it.each([
+    ['an offset', '2026-09-27T10:30:00.000+09:00'],
+    ['no milliseconds', '2026-09-27T01:30:00Z'],
+    ['no seconds', '2026-09-27T01:30Z'],
+    ['no time zone', '2026-09-27T01:30:00.000'],
+    ['only a date', '2026-09-27'],
+    ['seconds', '2026-09-27T01:30:15.000Z'],
+    ['milliseconds', '2026-09-27T01:30:00.001Z'],
+    ['a day that does not exist', '2026-02-30T01:30:00.000Z'],
+    ['the first minute of December 9999 in Japan time', '9999-11-30T15:00:00.000Z'],
+    // toISOString writes these years with six digits and a sign, which monthRange doesn't accept
+    ['a year after 9999', '+010000-01-01T00:00:00.000Z'],
+    ['a year before 0', '-000001-01-01T00:00:00.000Z'],
+    ['nothing', ''],
+  ])('rejects a timestamp with %s', (_, value) => {
+    expect(isMinuteTimestamp(value)).toBe(false)
   })
 })

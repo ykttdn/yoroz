@@ -106,4 +106,110 @@ describe('/api/finances', () => {
       expect(await res.json()).toEqual({ error: 'month must be a YYYY-MM month' })
     })
   })
+
+  describe('POST /api/finances/transactions', () => {
+    const body = { occurredAt: '2026-09-27T01:30:00.000Z', kind: 'expense' as const, amount: 1200, memo: 'Lunch' }
+
+    it('creates a transaction for the signed-in user', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await transactionsApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+      const created = await res.json()
+      expect(created).toEqual({ id: expect.any(Number), ...body })
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([created])
+    })
+
+    it('leaves the memo empty when it is left out', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const json = { occurredAt: body.occurredAt, kind: body.kind, amount: body.amount }
+
+      const res = await transactionsApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body, memo: '' })
+    })
+
+    it('ignores the keys it does not accept', async () => {
+      const alice = await signedInUser('alice@example.com')
+      // No category has this ID, so inserting it would break the foreign key
+      const json = { ...body, categoryId: 1 }
+
+      const res = await transactionsApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body })
+    })
+
+    it('accepts the largest amount', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const json = { ...body, amount: 1_000_000 }
+
+      const res = await transactionsApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...json })
+    })
+
+    it('accepts the longest memo', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const json = { ...body, memo: 'a'.repeat(200) }
+
+      const res = await transactionsApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...json })
+    })
+
+    it.each([
+      ['null as the body', null, 'The body must be a JSON object'],
+      ['an array as the body', [], 'The body must be a JSON object'],
+      ['a timestamp in December 9999', { ...body, occurredAt: '9999-11-30T15:00:00.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
+      ['a timestamp after the year 9999', { ...body, occurredAt: '+010000-01-01T00:00:00.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
+      ['a timestamp with an offset', { ...body, occurredAt: '2026-09-27T10:30:00.000+09:00' }, 'occurredAt must be a UTC timestamp on the minute'],
+      ['a timestamp with seconds', { ...body, occurredAt: '2026-09-27T01:30:15.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
+      ['an unknown kind', { ...body, kind: 'transfer' }, 'kind must be expense or income'],
+      ['a zero amount', { ...body, amount: 0 }, 'amount must be an integer from 1 to 1000000'],
+      ['a fractional amount', { ...body, amount: 1.5 }, 'amount must be an integer from 1 to 1000000'],
+      ['an amount over the limit', { ...body, amount: 1_000_001 }, 'amount must be an integer from 1 to 1000000'],
+      ['an amount as a string', { ...body, amount: '1200' }, 'amount must be an integer from 1 to 1000000'],
+      ['a memo that is not a string', { ...body, memo: 1 }, 'memo must be a string'],
+      ['a memo over the limit', { ...body, memo: 'a'.repeat(201) }, 'memo must be at most 200 characters'],
+    ])('rejects %s', async (_, json, error) => {
+      const alice = await signedInUser('alice@example.com')
+
+      // @ts-expect-error The type rules these bodies out, but the server still has to reject them
+      const res = await transactionsApi(alice).$post({ json })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error })
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([])
+    })
+
+    it('rejects a body that is not valid JSON', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      // json sets the JSON Content-Type, and init replaces only the body the client built from it
+      const res = await transactionsApi(alice).$post({ json: body }, { init: { body: '{"amount":' } })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'The body must be valid JSON' })
+    })
+
+    it('rejects a body sent without the JSON Content-Type', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      // Passing undefined instead of json leaves the Content-Type unset, so fetch sends the body in init as text/plain
+      // @ts-expect-error The type requires json, but the server still has to reject a body sent another way
+      const res = await transactionsApi(alice).$post(undefined, { init: { body: JSON.stringify(body) } })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([])
+    })
+  })
 })
