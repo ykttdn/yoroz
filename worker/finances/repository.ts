@@ -21,14 +21,21 @@ export const listTransactions = (db: DrizzleD1Database, userId: number, { start,
     ))
     .orderBy(desc(transactions.occurredAt), desc(transactions.id))
 
-export const createTransaction = async (
-  db: DrizzleD1Database,
-  userId: number,
-  values: Pick<typeof transactions.$inferInsert, 'occurredAt' | 'kind' | 'amount' | 'memo'>,
-) => {
+type TransactionValues = Pick<typeof transactions.$inferInsert, 'occurredAt' | 'kind' | 'amount' | 'memo'>
+
+export const createTransaction = async (db: DrizzleD1Database, userId: number, values: TransactionValues) => {
   const [transaction] = await db
     .insert(transactions)
     .values({ ...values, userId })
     .returning(transactionColumns)
   return transaction
+}
+
+export const updateTransaction = async (db: DrizzleD1Database, userId: number, id: number, values: TransactionValues) => {
+  const updated = await db
+    .update(transactions)
+    .set(values)
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+    .returning(transactionColumns)
+  return updated.at(0)
 }

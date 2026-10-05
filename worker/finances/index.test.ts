@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -24,6 +25,13 @@ const insertTransaction = async (userId: number, occurredAt: string, values: Par
     .returning({ id: transactions.id })
   return transaction.id
 }
+
+const malformedIds: [string, (id: number) => string][] = [
+  ['a word', () => 'abc'],
+  ['a hex', id => `0x${id.toString(16)}`],
+  ['an exponent', id => `${id}e0`],
+  ['a decimal', id => `${id}.0`],
+]
 
 describe('/api/finances', () => {
   beforeEach(async () => {
@@ -210,6 +218,98 @@ describe('/api/finances', () => {
       expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([])
+    })
+  })
+
+  describe('PUT /api/finances/transactions/:id', () => {
+    const body = { occurredAt: '2026-09-28T03:00:00.000Z', kind: 'income' as const, amount: 5000, memo: 'Refund' }
+
+    it('replaces the transaction with the body', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { memo: 'Lunch' })
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: body })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ id: transactionId, ...body })
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([{ id: transactionId, ...body }])
+    })
+
+    it('keeps createdAt and renews updatedAt', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const insertedAt = new Date('2026-09-27T01:30:00.000Z')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { createdAt: insertedAt, updatedAt: insertedAt })
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: body })
+
+      expect(res.status).toBe(200)
+      const [row] = await db
+        .select({ createdAt: transactions.createdAt, updatedAt: transactions.updatedAt })
+        .from(transactions)
+        .where(eq(transactions.id, transactionId))
+      expect(row.createdAt).toEqual(insertedAt)
+      expect(row.updatedAt.getTime()).toBeGreaterThan(insertedAt.getTime())
+    })
+
+    it('empties the memo when it is left out', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { memo: 'Lunch' })
+      const json = { occurredAt: body.occurredAt, kind: body.kind, amount: body.amount }
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ id: transactionId, ...body, memo: '' })
+    })
+
+    it('does not find a transaction of another user', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      const transactionId = await insertTransaction(bob.id, '2026-09-27T01:30:00.000Z')
+      const before = await transactionsApi(bob).$get({ query: { month: '2026-09' } })
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const after = await transactionsApi(bob).$get({ query: { month: '2026-09' } })
+      expect(await after.json()).toEqual(await before.json())
+    })
+
+    it('does not find a transaction that does not exist', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: '1' }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+    })
+
+    it.each(malformedIds)('does not find a transaction for an id written as %s', async (_, write) => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
+      const before = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: write(transactionId) }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const after = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await after.json()).toEqual(await before.json())
+    })
+
+    it('rejects an invalid body and keeps the transaction', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
+      const before = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+
+      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: { ...body, amount: 0 } })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'amount must be an integer from 1 to 1000000' })
+      const after = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await after.json()).toEqual(await before.json())
     })
   })
 })

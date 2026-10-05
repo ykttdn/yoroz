@@ -14,6 +14,14 @@ export const monthQueryValidator = validator('query', (value, c) => {
   return { month: range }
 })
 
+export const idParamValidator = validator('param', (value, c) => {
+  const id = /^[1-9]\d*$/.test(value.id) ? Number(value.id) : NaN
+  if (!Number.isSafeInteger(id)) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+  return { id }
+})
+
 // Otherwise zValidator validates {} when the Content-Type isn't JSON, and throws a plain-text 400 when the body isn't valid JSON.
 export const jsonValidator = createMiddleware(async (c, next) => {
   if (!/^application\/json(;|$)/i.test(c.req.header('Content-Type') ?? '')) {
