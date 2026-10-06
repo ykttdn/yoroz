@@ -312,4 +312,66 @@ describe('/api/finances', () => {
       expect(await after.json()).toEqual(await before.json())
     })
   })
+
+  describe('DELETE /api/finances/transactions/:id', () => {
+    it('deletes only the transaction with the id', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
+      const otherId = await insertTransaction(alice.id, '2026-09-28T01:30:00.000Z')
+
+      const res = await transactionsApi(alice)[':id'].$delete({ param: { id: String(transactionId) } })
+
+      expect(res.status).toBe(204)
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([expect.objectContaining({ id: otherId })])
+    })
+
+    it('does not find a transaction of another user', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      const transactionId = await insertTransaction(bob.id, '2026-09-27T01:30:00.000Z')
+
+      const res = await transactionsApi(alice)[':id'].$delete({ param: { id: String(transactionId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await transactionsApi(bob).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+
+    it('does not find a transaction that does not exist', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await transactionsApi(alice)[':id'].$delete({ param: { id: '1' } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+    })
+
+    it.each(malformedIds)('does not find a transaction for an id written as %s', async (_, write) => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
+
+      const res = await transactionsApi(alice)[':id'].$delete({ param: { id: write(transactionId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+
+    it('keeps the transaction when another site sends the request', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
+
+      const res = await transactionsApi(alice)[':id'].$delete(
+        { param: { id: String(transactionId) } },
+        { headers: { Origin: 'https://evil.example.com' } },
+      )
+
+      expect(res.status).toBe(403)
+      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
+      expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+  })
 })

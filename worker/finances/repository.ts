@@ -39,3 +39,11 @@ export const updateTransaction = async (db: DrizzleD1Database, userId: number, i
     .returning(transactionColumns)
   return updated.at(0)
 }
+
+export const deleteTransaction = async (db: DrizzleD1Database, userId: number, id: number) => {
+  const { meta } = await db
+    .delete(transactions)
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+    .run()
+  return meta.changes > 0
+}

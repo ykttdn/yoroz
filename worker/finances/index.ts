@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
 
 import type { AppEnv } from '../types'
-import { createTransaction, listTransactions, updateTransaction } from './repository'
+import { createTransaction, deleteTransaction, listTransactions, updateTransaction } from './repository'
 import { idParamValidator, jsonValidator, monthQueryValidator, transactionBodyValidator } from './validators'
 
 const finances = new Hono<AppEnv>()
@@ -20,6 +20,13 @@ const finances = new Hono<AppEnv>()
       return c.json({ error: 'Not found' }, 404)
     }
     return c.json(transaction)
+  })
+  .delete('/transactions/:id', idParamValidator, async (c) => {
+    const deleted = await deleteTransaction(drizzle(c.env.DB), c.get('user').id, c.req.valid('param').id)
+    if (!deleted) {
+      return c.json({ error: 'Not found' }, 404)
+    }
+    return c.body(null, 204)
   })
 
 export default finances
