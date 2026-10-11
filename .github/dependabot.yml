@@ -8,6 +8,11 @@ updates:
     cooldown:
       default-days: 7
     versioning-strategy: increase
+    groups:
+      cloudflare:
+        patterns:
+          - wrangler
+          - "@cloudflare/*"
 
   - package-ecosystem: github-actions
     directory: /
