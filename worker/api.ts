@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { verify } from 'hono/jwt'
 
+import finances from './finances'
 import { isAllowedEmail, SESSION_COOKIE } from './session'
 import type { AppEnv } from './types'
 
@@ -22,6 +23,7 @@ const api = new Hono<AppEnv>()
     return c.json({ email, name })
   })
   .get('/hello', c => c.json({ message: 'Hello from Hono on Workers' }))
+  .route('/finances', finances)
 
 export type Api = typeof api
 
