@@ -24,5 +24,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["worker", "worker-configuration.d.ts"]
+  "include": ["worker", "worker-configuration.d.ts"],
+  // Tests need no .d.ts, and emitting one fails when a test helper's inferred type
+  // refers to a library type that has no public import path
+  "exclude": ["worker/test", "worker/**/*.test.ts"]
 }
