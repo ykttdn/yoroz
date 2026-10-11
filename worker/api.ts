@@ -22,7 +22,6 @@ const api = new Hono<AppEnv>()
     const { email, name } = c.get('user')
     return c.json({ email, name })
   })
-  .get('/hello', c => c.json({ message: 'Hello from Hono on Workers' }))
   .route('/finances', finances)
 
 export type Api = typeof api

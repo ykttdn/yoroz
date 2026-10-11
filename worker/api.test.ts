@@ -59,13 +59,4 @@ describe('/api', () => {
       expect(await res.json()).toEqual({ email: 'alice@example.com', name: 'Alice' })
     })
   })
-
-  describe('GET /api/hello', () => {
-    it('returns a message to a signed-in user', async () => {
-      const res = await client({ session: await signedSession() }).api.hello.$get()
-
-      expect(res.status).toBe(200)
-      expect(await res.json()).toEqual({ message: 'Hello from Hono on Workers' })
-    })
-  })
 })
