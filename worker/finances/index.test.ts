@@ -99,11 +99,13 @@ describe('/api/finances', () => {
       const res = await transactionsApi(alice).$get({ query: {} })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'month must be a YYYY-MM month' })
+      expect(await res.json()).toEqual({ error: 'month must be a YYYY-MM month from 2000-01 to 2099-12' })
     })
 
     it.each([
       ['out of range', '2026-13'],
+      ['before the year 2000', '1999-12'],
+      ['after the year 2099', '2100-01'],
       ['that is not YYYY-MM', '2026-9'],
     ])('rejects a month %s', async (_, month) => {
       const alice = await signedInUser('alice@example.com')
@@ -111,7 +113,7 @@ describe('/api/finances', () => {
       const res = await transactionsApi(alice).$get({ query: { month } })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'month must be a YYYY-MM month' })
+      expect(await res.json()).toEqual({ error: 'month must be a YYYY-MM month from 2000-01 to 2099-12' })
     })
   })
 
@@ -174,8 +176,8 @@ describe('/api/finances', () => {
     it.each([
       ['null as the body', null, 'The body must be a JSON object'],
       ['an array as the body', [], 'The body must be a JSON object'],
-      ['a timestamp in December 9999', { ...body, occurredAt: '9999-11-30T15:00:00.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
-      ['a timestamp after the year 9999', { ...body, occurredAt: '+010000-01-01T00:00:00.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
+      ['a timestamp before the year 2000 in Japan time', { ...body, occurredAt: '1999-12-31T14:59:00.000Z' }, 'occurredAt must be in the years 2000 to 2099 in Japan time'],
+      ['a timestamp after the year 2099 in Japan time', { ...body, occurredAt: '2099-12-31T15:00:00.000Z' }, 'occurredAt must be in the years 2000 to 2099 in Japan time'],
       ['a timestamp with an offset', { ...body, occurredAt: '2026-09-27T10:30:00.000+09:00' }, 'occurredAt must be a UTC timestamp on the minute'],
       ['a timestamp with seconds', { ...body, occurredAt: '2026-09-27T01:30:15.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
       ['an unknown kind', { ...body, kind: 'transfer' }, 'kind must be expense or income'],
