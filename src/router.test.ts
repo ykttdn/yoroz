@@ -29,6 +29,16 @@ describe('navigation guard', () => {
     expect(router.currentRoute.value.name).toBe('home')
   })
 
+  it('fetches the user only once across navigations', async () => {
+    const fetch = stubSignedIn()
+
+    await router.push('/')
+    await router.push('/login')
+
+    expect(router.currentRoute.value.name).toBe('home')
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
   it('sends a signed-in user away from the login screen', async () => {
     stubSignedIn()
 

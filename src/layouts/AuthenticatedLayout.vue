@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { currentUser } from '../auth'
+import { useTemplateRef, watch } from 'vue'
+
+import { currentUser, sessionExpired } from '../session'
+
+const sessionExpiredDialog = useTemplateRef('sessionExpiredDialog')
+
+// showModal() rather than the open attribute, so the page behind can't be used while every request would fail
+const openSessionExpiredDialog = () => {
+  const dialog = sessionExpiredDialog.value
+  if (dialog && !dialog.open) {
+    dialog.showModal()
+  }
+}
+
+watch(sessionExpiredDialog, openSessionExpiredDialog)
 </script>
 
 <template>
@@ -57,4 +71,31 @@ import { currentUser } from '../auth'
   <main>
     <RouterView />
   </main>
+  <!-- Closing the modal would only leave a page whose requests all fail. Chrome lets a second Escape through despite
+       the cancelled cancel event, so the modal reopens once closed -->
+  <dialog
+    v-if="sessionExpired"
+    ref="sessionExpiredDialog"
+    class="modal"
+    aria-labelledby="session-expired-title"
+    @cancel.prevent
+    @close="openSessionExpiredDialog"
+  >
+    <div class="modal-box flex flex-col gap-4">
+      <h2
+        id="session-expired-title"
+        class="text-lg font-bold"
+      >
+        ログインが必要です
+      </h2>
+      <p>セッションが切れました。もう一度ログインしてください。</p>
+      <div class="modal-action">
+        <!-- A full page load, not a RouterLink: the OAuth flow lives in the Worker -->
+        <a
+          href="/auth/google"
+          class="btn btn-primary"
+        >Google でログイン</a>
+      </div>
+    </div>
+  </dialog>
 </template>
