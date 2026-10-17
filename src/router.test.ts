@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Router } from 'vue-router'
 
-const alice = { email: 'alice@example.com', name: 'Alice' }
+const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 
 // A redirect runs the guard again, and a Response body can only be read once, so each call gets a new one
 const stubSignedIn = () => vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(alice))
@@ -27,6 +27,16 @@ describe('navigation guard', () => {
     await router.push('/')
 
     expect(router.currentRoute.value.name).toBe('home')
+  })
+
+  it('fetches the user only once across navigations', async () => {
+    const fetch = stubSignedIn()
+
+    await router.push('/')
+    await router.push('/login')
+
+    expect(router.currentRoute.value.name).toBe('home')
+    expect(fetch).toHaveBeenCalledOnce()
   })
 
   it('sends a signed-in user away from the login screen', async () => {

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import { fetchUser } from './auth'
+import { getCachedOrFetchUser } from './auth'
 import AuthenticatedLayout from './layouts/AuthenticatedLayout.vue'
 import type { User } from './types'
 import HomeView from './views/HomeView.vue'
@@ -23,7 +23,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   let user: User | null
   try {
-    user = await fetchUser()
+    user = await getCachedOrFetchUser()
   } catch {
     // An aborted navigation would leave a blank page, so send the user to the login screen instead
     user = null
