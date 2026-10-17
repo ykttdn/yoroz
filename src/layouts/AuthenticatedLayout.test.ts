@@ -1,9 +1,11 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
-import { sessionExpired } from '../session'
+import { currentUser, sessionEnded } from '../session'
 import AuthenticatedLayout from './AuthenticatedLayout.vue'
+
+const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 
 // Attached to the document, since showModal() throws for a dialog that is not connected
 const mountLayout = () => mount(AuthenticatedLayout, { attachTo: document.body, global: { stubs: { RouterView: true } } })
@@ -13,19 +15,35 @@ const mountLayout = () => mount(AuthenticatedLayout, { attachTo: document.body, 
 enableAutoUnmount(afterEach)
 
 describe('AuthenticatedLayout', () => {
+  beforeEach(() => {
+    currentUser.value = alice
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
-    sessionExpired.value = false
+    currentUser.value = null
+    sessionEnded.value = null
     document.body.innerHTML = ''
   })
 
   it('checks the session when the tab is shown again', () => {
-    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({}))
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(alice))
     mountLayout()
 
     document.dispatchEvent(new Event('visibilitychange'))
 
     expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('shows the new name when the same account comes back with one', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ ...alice, name: 'Alice Smith' }))
+    const wrapper = mountLayout()
+
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+
+    expect(currentUser.value).toEqual({ ...alice, name: 'Alice Smith' })
+    expect(wrapper.get('header').text()).toContain('Alice Smith')
   })
 
   // Vitest fails the run on an unhandled rejection, so this catches a check that lets a network failure escape
@@ -37,7 +55,7 @@ describe('AuthenticatedLayout', () => {
     await flushPromises()
 
     expect(fetch).toHaveBeenCalledOnce()
-    expect(sessionExpired.value).toBe(false)
+    expect(sessionEnded.value).toBeNull()
   })
 
   it('does not check the session when the tab is hidden', () => {
@@ -50,8 +68,8 @@ describe('AuthenticatedLayout', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('does not check the session again once it has expired', () => {
-    sessionExpired.value = true
+  it('does not check the session again once it has ended', () => {
+    sessionEnded.value = 'expired'
     const fetch = vi.spyOn(globalThis, 'fetch')
     mountLayout()
 
@@ -78,7 +96,7 @@ describe('AuthenticatedLayout', () => {
   it('opens a modal linking to the login when the session expires', async () => {
     const wrapper = mountLayout()
 
-    sessionExpired.value = true
+    sessionEnded.value = 'expired'
     await nextTick()
 
     const dialog = wrapper.get<HTMLDialogElement>('dialog')
@@ -87,9 +105,23 @@ describe('AuthenticatedLayout', () => {
     expect(dialog.get('a').attributes('href')).toBe('/auth/google')
   })
 
+  it('opens a modal asking for a reload when another account has signed in', async () => {
+    const reload = vi.spyOn(location, 'reload').mockImplementation(() => {})
+    const wrapper = mountLayout()
+
+    sessionEnded.value = 'switched'
+    await nextTick()
+
+    const dialog = wrapper.get<HTMLDialogElement>('dialog')
+    expect(dialog.element.open).toBe(true)
+    expect(dialog.get('h2').text()).toBe('別のアカウントでログインされました')
+    await dialog.get('button').trigger('click')
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
   it('keeps the modal open on Escape', async () => {
     const wrapper = mountLayout()
-    sessionExpired.value = true
+    sessionEnded.value = 'expired'
     await nextTick()
 
     const dialog = wrapper.get<HTMLDialogElement>('dialog')
@@ -101,7 +133,7 @@ describe('AuthenticatedLayout', () => {
 
   it('reopens the modal when the browser closes it anyway', async () => {
     const wrapper = mountLayout()
-    sessionExpired.value = true
+    sessionEnded.value = 'expired'
     await nextTick()
 
     const dialog = wrapper.get<HTMLDialogElement>('dialog')

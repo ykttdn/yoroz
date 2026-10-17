@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { ANOTHER_USER_ERROR, EXPECTED_USER_HEADER } from './session'
 import { client, now, signedSession } from './test/helpers'
 
 describe('/api', () => {
@@ -51,12 +52,33 @@ describe('/api', () => {
     })
   })
 
+  describe('with the user the SPA expects', () => {
+    it('accepts a request from the expected user', async () => {
+      const res = await client({ session: await signedSession() }).api.me.$get(undefined, { headers: { [EXPECTED_USER_HEADER]: '1' } })
+
+      expect(res.status).toBe(200)
+    })
+
+    it('rejects a request once another user has signed in', async () => {
+      const res = await client({ session: await signedSession({ sub: '2' }) }).api.me.$get(undefined, { headers: { [EXPECTED_USER_HEADER]: '1' } })
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ error: ANOTHER_USER_ERROR })
+    })
+
+    it('reports an invalid session as unauthorized even with the expected user', async () => {
+      const res = await client().api.me.$get(undefined, { headers: { [EXPECTED_USER_HEADER]: '1' } })
+
+      expect(res.status).toBe(401)
+    })
+  })
+
   describe('GET /api/me', () => {
     it('returns the signed-in user', async () => {
       const res = await client({ session: await signedSession() }).api.me.$get()
 
       expect(res.status).toBe(200)
-      expect(await res.json()).toEqual({ email: 'alice@example.com', name: 'Alice' })
+      expect(await res.json()).toEqual({ id: 1, email: 'alice@example.com', name: 'Alice' })
     })
   })
 })

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Router } from 'vue-router'
 
-const alice = { email: 'alice@example.com', name: 'Alice' }
+const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 
 // A redirect runs the guard again, and a Response body can only be read once, so each call gets a new one
 const stubSignedIn = () => vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(alice))

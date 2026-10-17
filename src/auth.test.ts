@@ -1,33 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchUser, getCachedOrFetchUser } from './auth'
-import { currentUser, sessionExpired } from './session'
+import { currentUser, sessionEnded } from './session'
 
-const alice = { email: 'alice@example.com', name: 'Alice' }
+const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 
 describe('fetchUser', () => {
-  beforeEach(() => {
-    currentUser.value = null
-    sessionExpired.value = false
-  })
-
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('returns the signed-in user and keeps it in currentUser', async () => {
+  it('returns the signed-in user', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(alice))
 
     expect(await fetchUser()).toEqual(alice)
-    expect(currentUser.value).toEqual(alice)
   })
 
   it('returns null when signed out', async () => {
-    currentUser.value = alice
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ error: 'Unauthorized' }, { status: 401 }))
 
     expect(await fetchUser()).toBeNull()
-    expect(currentUser.value).toBeNull()
   })
 
   it('throws on a server error', async () => {
@@ -46,7 +38,7 @@ describe('fetchUser', () => {
 describe('getCachedOrFetchUser', () => {
   beforeEach(() => {
     currentUser.value = null
-    sessionExpired.value = false
+    sessionEnded.value = null
   })
 
   afterEach(() => {
@@ -66,5 +58,12 @@ describe('getCachedOrFetchUser', () => {
 
     expect(await getCachedOrFetchUser()).toEqual(alice)
     expect(currentUser.value).toEqual(alice)
+  })
+
+  it('returns null when signed out', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ error: 'Unauthorized' }, { status: 401 }))
+
+    expect(await getCachedOrFetchUser()).toBeNull()
+    expect(currentUser.value).toBeNull()
   })
 })
