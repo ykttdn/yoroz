@@ -1,7 +1,19 @@
 <script setup lang="ts">
-import { useTemplateRef, watch } from 'vue'
+import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 
+import { api } from '../api'
 import { currentUser, sessionExpired } from '../session'
+
+// Views that make no API calls would otherwise never notice a session that ended while the tab was in the background
+const checkSessionOnTabShown = () => {
+  if (document.visibilityState === 'visible' && !sessionExpired.value) {
+    // fetchUser() would treat a network failure as signed out, so only the API client's 401 handling should act here
+    api.me.$get().catch(() => {})
+  }
+}
+
+onMounted(() => document.addEventListener('visibilitychange', checkSessionOnTabShown))
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', checkSessionOnTabShown))
 
 const sessionExpiredDialog = useTemplateRef('sessionExpiredDialog')
 
