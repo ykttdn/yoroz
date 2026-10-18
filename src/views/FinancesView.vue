@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onWatcherCleanup, ref, watch } from 'vue'
+import { skipToken, useQuery } from '@tanstack/vue-query'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
@@ -28,13 +29,26 @@ const linkedYearMonth = (delta: number) => {
 const previousYearMonth = computed(() => linkedYearMonth(-1))
 const nextYearMonth = computed(() => linkedYearMonth(1))
 
-const transactions = ref<Transaction[]>([])
-const status = ref<'loading' | 'loaded' | 'error'>('loading')
+const { data: transactions, isPending, isError } = useQuery(() => {
+  const month = yearMonth.value
+  return {
+    queryKey: ['finances', 'transactions', month],
+    queryFn: month === undefined
+      ? skipToken
+      : async ({ signal }) => {
+        const res = await api.finances.transactions.$get({ query: { month } }, { init: { signal } })
+        if (!res.ok) {
+          throw new Error(`/api/finances/transactions failed: ${res.status}`)
+        }
+        return res.json()
+      },
+  }
+})
 
 // Each transaction is matched only against the group added last, not every group so far, since the API returns the
 // transactions newest first and a day's transactions are always next to each other
 const transactionsByDay = computed(() =>
-  transactions.value.reduce<{ heading: string, transactions: Transaction[] }[]>(
+  (transactions.value ?? []).reduce<{ heading: string, transactions: Transaction[] }[]>(
     (groups, transaction) => {
       const heading = formatDay(transaction.occurredAt)
       const lastGroup = groups.at(-1)
@@ -52,37 +66,6 @@ const transactionsByDay = computed(() =>
 // The sign tells income from expenses, so the amount doesn't rely on its color alone
 const amountFormat = new Intl.NumberFormat('ja-JP', { signDisplay: 'always' })
 const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind === 'expense' ? -amount : amount)
-
-const load = async (yearMonthToLoad: string | undefined) => {
-  if (yearMonthToLoad === undefined) {
-    return
-  }
-
-  status.value = 'loading'
-
-  // Aborted once the month changes or the page is left. Otherwise the response for an earlier month, which can arrive
-  // last, would replace the transactions of the month now shown
-  const controller = new AbortController()
-  onWatcherCleanup(() => controller.abort())
-
-  try {
-    const res = await api.finances.transactions.$get({ query: { month: yearMonthToLoad } }, { init: { signal: controller.signal } })
-    if (!res.ok) {
-      throw new Error(`/api/finances/transactions failed: ${res.status}`)
-    }
-    const body = await res.json()
-    if (!controller.signal.aborted) {
-      transactions.value = body
-      status.value = 'loaded'
-    }
-  } catch {
-    if (!controller.signal.aborted) {
-      status.value = 'error'
-    }
-  }
-}
-
-watch(yearMonth, load, { immediate: true })
 </script>
 
 <template>
@@ -148,20 +131,20 @@ watch(yearMonth, load, { immediate: true })
         </button>
       </div>
       <span
-        v-if="status === 'loading'"
+        v-if="isPending"
         role="status"
         aria-label="読み込み中"
         class="loading mx-auto loading-spinner"
       />
       <p
-        v-else-if="status === 'error'"
+        v-else-if="isError"
         role="alert"
         class="alert alert-soft alert-error"
       >
         明細を読み込めませんでした。
       </p>
       <p
-        v-else-if="transactions.length === 0"
+        v-else-if="transactionsByDay.length === 0"
         class="text-center text-base-content/60"
       >
         この月の明細はありません。
