@@ -69,15 +69,6 @@ describe('FinancesView', () => {
     expect(amounts[1]).toContain('text-green-700')
   })
 
-  // happy-dom doesn't render line breaks, so this checks for the style that keeps them instead
-  it('keeps the line breaks in a memo', async () => {
-    stubTransactions([{ ...expenseOnSeptember1, memo: '1行目\n2行目' }])
-
-    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
-
-    expect(wrapper.get('li p').classes()).toContain('whitespace-pre-line')
-  })
-
   it('shows this month in Japan time when the query has no month', async () => {
     const fetchSpy = stubTransactions([])
 

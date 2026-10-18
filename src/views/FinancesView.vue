@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
 import { api } from '../api'
+import ClampedText from '../components/ClampedText.vue'
 import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from '../finances/datetime'
 import type { Transaction } from '../types'
 
@@ -175,12 +176,10 @@ watch(yearMonth, load, { immediate: true })
               class="flex items-center justify-between gap-4 px-4 py-3"
             >
               <div class="flex min-w-0 flex-col gap-0.5">
-                <p
+                <ClampedText
                   v-if="transaction.memo"
-                  class="wrap-break-word whitespace-pre-line"
-                >
-                  {{ transaction.memo }}
-                </p>
+                  :text="transaction.memo"
+                />
                 <span class="text-xs text-base-content/60">{{ formatTime(transaction.occurredAt) }}</span>
               </div>
               <span
