@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { getCachedOrFetchUser } from './auth'
 import AuthenticatedLayout from './layouts/AuthenticatedLayout.vue'
 import type { User } from './types'
+import FinancesView from './views/FinancesView.vue'
 import HomeView from './views/HomeView.vue'
 import LoginView from './views/LoginView.vue'
 
@@ -13,7 +14,10 @@ const router = createRouter({
       path: '/',
       component: AuthenticatedLayout,
       meta: { requiresAuth: true },
-      children: [{ path: '', name: 'home', component: HomeView }],
+      children: [
+        { path: '', name: 'home', component: HomeView },
+        { path: 'finances', name: 'finances', component: FinancesView },
+      ],
     },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/:pathMatch(.*)*', redirect: '/' },

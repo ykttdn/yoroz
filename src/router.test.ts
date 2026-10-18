@@ -39,6 +39,22 @@ describe('navigation guard', () => {
     expect(fetch).toHaveBeenCalledOnce()
   })
 
+  it('shows the finances page to a signed-in user', async () => {
+    stubSignedIn()
+
+    await router.push('/finances')
+
+    expect(router.currentRoute.value.name).toBe('finances')
+  })
+
+  it('sends a signed-out user from the finances page to the login screen', async () => {
+    stubSignedOut()
+
+    await router.push('/finances')
+
+    expect(router.currentRoute.value.name).toBe('login')
+  })
+
   it('sends a signed-in user away from the login screen', async () => {
     stubSignedIn()
 
