@@ -1,3 +1,5 @@
+import { monthRange } from '../../worker/finances/datetime'
+
 // Dates are always shown in Japan time, whatever the browser's time zone is,
 // so nothing here uses the Date methods that read the browser's time zone
 const TIME_ZONE = 'Asia/Tokyo'
@@ -9,10 +11,19 @@ const dayFormat = new Intl.DateTimeFormat('ja-JP', { timeZone: TIME_ZONE, month:
 // h23 so that midnight is 00:00, never 24:00
 const timeFormat = new Intl.DateTimeFormat('ja-JP', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
+export const isListableYearMonth = (value: unknown): value is string =>
+  typeof value === 'string' && monthRange(value) !== undefined
+
 export const currentYearMonth = (now = new Date()) => {
   const parts = yearMonthFormat.formatToParts(now)
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value
   return `${part('year')}-${part('month')}`
+}
+
+export const shiftYearMonth = (yearMonth: string, delta: number) => {
+  const [year, month] = yearMonth.split('-').map(Number)
+  const index = year * 12 + (month - 1) + delta
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`
 }
 
 export const formatYearMonth = (yearMonth: string) => {
