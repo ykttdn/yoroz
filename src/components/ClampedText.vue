@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
+import { onMounted, ref, useTemplateRef, watch } from 'vue'
 
 const props = defineProps<{ text: string }>()
 
@@ -19,16 +20,9 @@ const measure = () => {
   }
 }
 
-let observer: ResizeObserver | undefined
-onMounted(() => {
-  measure()
-  if (paragraph.value) {
-    // Narrowing the paragraph can cut off text that fit before, so the paragraph is measured again whenever its size changes
-    observer = new ResizeObserver(measure)
-    observer.observe(paragraph.value)
-  }
-})
-onBeforeUnmount(() => observer?.disconnect())
+onMounted(measure)
+// Narrowing the paragraph can cut off text that fit before, so the paragraph is measured again whenever its size changes
+useResizeObserver(paragraph, measure)
 
 watch(() => props.text, measure, { flush: 'post' })
 watch(expanded, measure, { flush: 'post' })
