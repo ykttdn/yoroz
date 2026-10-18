@@ -29,7 +29,7 @@ const previousYearMonth = computed(() => linkedYearMonth(-1))
 const nextYearMonth = computed(() => linkedYearMonth(1))
 
 const transactions = ref<Transaction[]>([])
-const error = ref(false)
+const status = ref<'loading' | 'loaded' | 'error'>('loading')
 
 // Each transaction is matched only against the group added last, not every group so far, since the API returns the
 // transactions newest first and a day's transactions are always next to each other
@@ -58,6 +58,8 @@ const load = async (yearMonthToLoad: string | undefined) => {
     return
   }
 
+  status.value = 'loading'
+
   // Aborted once the month changes or the page is left. Otherwise the response for an earlier month, which can arrive
   // last, would replace the transactions of the month now shown
   const controller = new AbortController()
@@ -71,11 +73,11 @@ const load = async (yearMonthToLoad: string | undefined) => {
     const body = await res.json()
     if (!controller.signal.aborted) {
       transactions.value = body
-      error.value = false
+      status.value = 'loaded'
     }
   } catch {
     if (!controller.signal.aborted) {
-      error.value = true
+      status.value = 'error'
     }
   }
 }
@@ -145,8 +147,14 @@ watch(yearMonth, load, { immediate: true })
           ›
         </button>
       </div>
+      <span
+        v-if="status === 'loading'"
+        role="status"
+        aria-label="読み込み中"
+        class="loading mx-auto loading-spinner"
+      />
       <p
-        v-if="error"
+        v-else-if="status === 'error'"
         role="alert"
         class="alert alert-soft alert-error"
       >

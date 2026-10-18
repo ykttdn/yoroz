@@ -177,6 +177,37 @@ describe('FinancesView', () => {
     expect(requestsAborted(fetchSpy)).toEqual([true])
   })
 
+  it('shows a spinner instead of an empty month until the transactions arrive', async () => {
+    const respond: ((response: Response) => void)[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(resolve => respond.push(resolve)))
+
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('この月の明細はありません。')
+
+    respond[0](Response.json([expenseOnSeptember1]))
+    await flushPromises()
+
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.findAll('li p').map(memo => memo.text())).toEqual(['テストメモ2'])
+  })
+
+  it('hides the previous month\'s transactions while the next month loads', async () => {
+    const respond: ((response: Response) => void)[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(resolve => respond.push(resolve)))
+    const { wrapper, router } = await mountFinancesViewAt('/finances?month=2026-09')
+    respond[0](Response.json([expenseOnSeptember1]))
+    await flushPromises()
+
+    await router.push('/finances?month=2026-10')
+    await flushPromises()
+
+    expect(wrapper.get('h2').text()).toBe('2026年10月')
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    expect(wrapper.findAll('li p').map(memo => memo.text())).toEqual([])
+  })
+
   it('says so when the month has no transactions', async () => {
     stubTransactions([])
 
