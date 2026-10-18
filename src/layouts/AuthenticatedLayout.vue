@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
+import { useEventListener } from '@vueuse/core'
+import { useTemplateRef, watch } from 'vue'
 
 import { fetchUser } from '../auth'
 import { currentUser, sessionEnded } from '../session'
@@ -23,8 +24,7 @@ const checkSessionOnTabShown = async () => {
   }
 }
 
-onMounted(() => document.addEventListener('visibilitychange', checkSessionOnTabShown))
-onBeforeUnmount(() => document.removeEventListener('visibilitychange', checkSessionOnTabShown))
+useEventListener(document, 'visibilitychange', checkSessionOnTabShown)
 
 const sessionEndedDialog = useTemplateRef('sessionEndedDialog')
 

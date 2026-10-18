@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, toValue } from 'vue'
 
 import ClampedText from './ClampedText.vue'
 
@@ -9,6 +9,14 @@ const stubHeights = ({ scrollHeight, clientHeight }: { scrollHeight: number, cli
   vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(clientHeight)
 }
+
+// happy-dom's ResizeObserver never calls back, so useResizeObserver is replaced to let a test report a resize itself
+let observation: { target: unknown, callback: () => void } | undefined
+vi.mock('@vueuse/core', () => ({
+  useResizeObserver: (target: unknown, callback: () => void) => {
+    observation = { target, callback }
+  },
+}))
 
 describe('ClampedText', () => {
   afterEach(() => {
@@ -42,6 +50,20 @@ describe('ClampedText', () => {
     await nextTick()
 
     expect(wrapper.get('p').classes()).toContain('whitespace-pre-line')
+  })
+
+  it('shows the button once narrowing the paragraph cuts off the text', async () => {
+    stubHeights({ scrollHeight: 60, clientHeight: 60 })
+    const wrapper = mount(ClampedText, { props: { text: 'テストメモ' } })
+    await nextTick()
+
+    stubHeights({ scrollHeight: 120, clientHeight: 60 })
+    // Calls the function ClampedText passed to useResizeObserver, as the browser would once the paragraph is narrowed
+    observation?.callback()
+    await nextTick()
+
+    expect(toValue(observation?.target)).toBe(wrapper.get('p').element)
+    expect(wrapper.find('button').exists()).toBe(true)
   })
 
   it('expands and collapses text that is cut off', async () => {

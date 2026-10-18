@@ -1,7 +1,9 @@
+import { VueQueryPlugin } from '@tanstack/vue-query'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { createQueryClient } from '../queryClient'
 import type { Transaction } from '../types'
 import FinancesView from './FinancesView.vue'
 
@@ -25,7 +27,7 @@ const mountFinancesViewAt = async (url: string) => {
     routes: [{ path: '/finances', component: FinancesView }],
   })
   await router.push(url)
-  const wrapper = mount(FinancesView, { global: { plugins: [router] } })
+  const wrapper = mount(FinancesView, { global: { plugins: [router, [VueQueryPlugin, { queryClient: createQueryClient() }]] } })
   await flushPromises()
   return { wrapper, router }
 }
