@@ -1,5 +1,5 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -27,10 +27,15 @@ const mountFinancesViewAt = async (url: string) => {
     routes: [{ path: '/finances', component: FinancesView }],
   })
   await router.push(url)
-  const wrapper = mount(FinancesView, { global: { plugins: [router, [VueQueryPlugin, { queryClient: createQueryClient() }]] } })
+  const wrapper = mount(FinancesView, {
+    attachTo: document.body,
+    global: { plugins: [router, [VueQueryPlugin, { queryClient: createQueryClient() }]] },
+  })
   await flushPromises()
   return { wrapper, router }
 }
+
+enableAutoUnmount(afterEach)
 
 describe('FinancesView', () => {
   // The first minute of September in Japan time, while it is still August in UTC
@@ -225,5 +230,26 @@ describe('FinancesView', () => {
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
     expect(wrapper.get('[role="alert"]').text()).toBe('明細を読み込めませんでした。')
+  })
+
+  it('fetches the month again once a transaction is added from the modal', async () => {
+    // The responses carry no transactions, since only the requests and the closing of the modal are checked
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => Response.json([]))
+      .mockImplementationOnce(async () => new Response(null, { status: 201 }))
+      .mockImplementationOnce(async () => Response.json([]))
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    await wrapper.findAll('button').find(button => button.text() === '明細を追加')!.trigger('click')
+    await wrapper.get('#transaction-amount').setValue('2222')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(requestedUrls(fetchSpy)).toEqual([
+      expect.stringContaining('/api/finances/transactions?month=2026-09'),
+      expect.stringMatching(/\/api\/finances\/transactions$/),
+      expect.stringContaining('/api/finances/transactions?month=2026-09'),
+    ])
+    expect(wrapper.find('dialog').exists()).toBe(false)
   })
 })

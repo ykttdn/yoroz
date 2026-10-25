@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { skipToken, useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
 import { api } from '../api'
 import ClampedText from '../components/ClampedText.vue'
+import TransactionModal from '../components/TransactionModal.vue'
 import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from '../finances/datetime'
 import type { Transaction } from '../types'
 
 const route = useRoute()
+
+const adding = ref(false)
 
 const yearMonth = computed(() => {
   const { month } = route.query
@@ -70,9 +73,22 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
 
 <template>
   <div class="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-    <h1 class="text-xl font-bold">
-      家計簿
-    </h1>
+    <div class="flex items-center justify-between gap-4">
+      <h1 class="text-xl font-bold">
+        家計簿
+      </h1>
+      <button
+        type="button"
+        class="btn btn-primary"
+        @click="adding = true"
+      >
+        明細を追加
+      </button>
+    </div>
+    <TransactionModal
+      v-if="adding"
+      @close="adding = false"
+    />
     <template v-if="yearMonth === undefined">
       <div
         role="alert"
