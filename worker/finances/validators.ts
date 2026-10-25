@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { transactions } from '../db/schema'
 import { isInYearRange, isMinuteTimestamp, MAX_YEAR, MIN_YEAR, monthRange } from './datetime'
+import { MAX_AMOUNT, MAX_MEMO_LENGTH } from './limits'
 
 export const monthQueryValidator = validator('query', (value, c) => {
   const range = typeof value.month === 'string' ? monthRange(value.month) : undefined
@@ -37,9 +38,7 @@ export const jsonValidator = createMiddleware(async (c, next) => {
 
 const OCCURRED_AT_FORMAT_ERROR = 'occurredAt must be a UTC timestamp on the minute'
 const OCCURRED_AT_YEAR_ERROR = `occurredAt must be in the years ${MIN_YEAR} to ${MAX_YEAR} in Japan time`
-const MAX_AMOUNT = 1_000_000
 const AMOUNT_ERROR = `amount must be an integer from 1 to ${MAX_AMOUNT}`
-const MAX_MEMO_LENGTH = 200
 
 export const transactionBodyValidator = zValidator('json',
   z.object({

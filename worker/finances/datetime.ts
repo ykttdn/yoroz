@@ -1,4 +1,4 @@
-const TIME_ZONE_OFFSET = '+09:00'
+export const TIME_ZONE_OFFSET = '+09:00'
 
 export const MIN_YEAR = 2000
 export const MAX_YEAR = 2099

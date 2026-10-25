@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from './datetime'
+import { currentYearMonth, formatDay, formatTime, formatYearMonth, fromDateTimeLocal, isListableYearMonth, shiftYearMonth, toDateTimeLocal } from './datetime'
 
 describe('isListableYearMonth', () => {
   it.each([
@@ -61,5 +61,17 @@ describe('formatDay', () => {
 describe('formatTime', () => {
   it('shows the time in Japan time, with midnight as 00:00', () => {
     expect(formatTime('2026-08-31T15:00:00.000Z')).toBe('00:00')
+  })
+})
+
+describe('toDateTimeLocal', () => {
+  it('writes the date and time in Japan time, with midnight as 00:00', () => {
+    expect(toDateTimeLocal(new Date('2026-08-31T15:00:00Z'))).toBe('2026-09-01T00:00')
+  })
+})
+
+describe('fromDateTimeLocal', () => {
+  it('reads the date and time as Japan time', () => {
+    expect(fromDateTimeLocal('2026-09-01T00:00')).toBe('2026-08-31T15:00:00.000Z')
   })
 })
