@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { skipToken, useQuery } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
@@ -17,11 +17,23 @@ const isAddingTransaction = ref(false)
 const transactionToEdit = ref<Transaction>()
 const transactionToDelete = ref<Transaction>()
 
+const addButton = useTemplateRef('addButton')
+
 const menuButtonId = (transaction: Transaction) => `transaction-${transaction.id}-menu-button`
 
 // showModal closes the menu, so the dialog could not give focus back to the menu item it was opened from and would leave
 // it on the body. Focusing the menu's button before showModal makes the dialog give focus back to that button instead
 const focusMenuButton = (transaction: Transaction) => document.getElementById(menuButtonId(transaction))?.focus()
+
+// Fetching the month again while a modal is open replaces the transaction's row when its day changed and removes it when
+// it left the month or was deleted, so the menu button the dialog gave focus back to may no longer be in the page, leaving
+// focus on the body. The row's current menu button, or the add button when the row is gone, takes focus instead
+const closeTransactionMenuModal = (transaction: Transaction) => {
+  transactionToEdit.value = undefined
+  transactionToDelete.value = undefined
+  const focusTarget = document.getElementById(menuButtonId(transaction)) ?? addButton.value
+  focusTarget?.focus()
+}
 
 const yearMonth = computed(() => {
   const { month } = route.query
@@ -87,6 +99,7 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
         家計簿
       </h1>
       <button
+        ref="addButton"
         type="button"
         class="btn btn-primary"
         @click="isAddingTransaction = true"
@@ -101,12 +114,12 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
     <TransactionModal
       v-if="transactionToEdit"
       :transaction="transactionToEdit"
-      @close="transactionToEdit = undefined"
+      @close="closeTransactionMenuModal(transactionToEdit!)"
     />
     <DeleteTransactionModal
       v-if="transactionToDelete"
       :transaction="transactionToDelete"
-      @close="transactionToDelete = undefined"
+      @close="closeTransactionMenuModal(transactionToDelete!)"
     />
     <template v-if="yearMonth === undefined">
       <div

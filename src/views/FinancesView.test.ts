@@ -264,6 +264,16 @@ describe('FinancesView', () => {
     expect(wrapper.find('dialog').exists()).toBe(false)
   })
 
+  it('focuses the menu button of the transaction once a modal from its menu is cancelled', async () => {
+    stubTransactions([expenseOnSeptember2, expenseOnSeptember1])
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+    await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+
+    expect(document.activeElement).toBe(wrapper.get('#transaction-2-menu-button').element)
+  })
+
   it('focuses the menu button of the transaction before opening a modal from its menu', async () => {
     stubTransactions([expenseOnSeptember2, expenseOnSeptember1])
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
@@ -292,6 +302,35 @@ describe('FinancesView', () => {
       ])
       expect(wrapper.find('dialog').exists()).toBe(false)
     })
+
+    it('focuses the new menu button of an edited transaction once it moves to another day', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => Response.json(expenseOnSeptember1))
+        .mockImplementationOnce(async () => Response.json([{ ...expenseOnSeptember1, occurredAt: '2026-09-02T01:00:00.000Z' }, expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.findAll('section')).toHaveLength(1)
+      expect(document.activeElement).toBe(wrapper.get('#transaction-2-menu-button').element)
+    })
+
+    it('focuses the add button once an edited transaction leaves the month', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => Response.json(expenseOnSeptember1))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+    })
   })
 
   describe('deleting from the menu', () => {
@@ -312,6 +351,20 @@ describe('FinancesView', () => {
         expect.stringContaining('/api/finances/transactions?month=2026-09'),
       ])
       expect(wrapper.find('dialog').exists()).toBe(false)
+    })
+
+    it('focuses the add button once a transaction is deleted, since its menu button leaves the list', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 204 }))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
     })
   })
 })
