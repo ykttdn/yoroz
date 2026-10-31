@@ -48,6 +48,17 @@ describe('DeleteTransactionModal', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('削除できませんでした。')
   })
 
+  it('stays open saying so when the transaction was already deleted', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
+    const wrapper = mountDeleteTransactionModal()
+
+    await wrapper.findAll('button').find(button => button.text() === '削除')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
+    expect(wrapper.get('[role="alert"]').text()).toBe('この明細はすでに削除されています。')
+  })
+
   it('keeps Escape from closing the modal while the request is pending', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
     const wrapper = mountDeleteTransactionModal()

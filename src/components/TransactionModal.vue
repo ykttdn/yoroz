@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { onMounted, ref, useTemplateRef } from 'vue'
 
 import { MAX_AMOUNT, MAX_MEMO_LENGTH } from '../../worker/finances/limits'
-import { api } from '../api'
+import { api, isNotFound, ResponseError } from '../api'
 import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
 import { fromDateTimeLocal, MAX_DATE_TIME_LOCAL, MIN_DATE_TIME_LOCAL, toDateTimeLocal } from '../finances/datetime'
 import type { Transaction } from '../types'
@@ -24,14 +24,14 @@ const memo = ref(transaction?.memo ?? '')
 
 const queryClient = useQueryClient()
 
-const { mutate, isPending, isError } = useMutation({
+const { mutate, isPending, isError, error } = useMutation({
   mutationFn: async () => {
     const json = { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value }
     const res = transaction
       ? await api.finances.transactions[':id'].$put({ param: { id: String(transaction.id) }, json })
       : await api.finances.transactions.$post({ json })
     if (!res.ok) {
-      throw new Error(`/api/finances/transactions failed: ${res.status}`)
+      throw new ResponseError(`/api/finances/transactions failed: ${res.status}`, res.status)
     }
   },
   // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the fetch
@@ -39,6 +39,12 @@ const { mutate, isPending, isError } = useMutation({
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
+  },
+  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
+  onError: (mutationError) => {
+    if (isNotFound(mutationError)) {
+      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+    }
   },
 })
 
@@ -132,7 +138,7 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         role="alert"
         class="alert alert-soft alert-error"
       >
-        {{ transaction ? '保存できませんでした。' : '登録できませんでした。' }}
+        {{ isNotFound(error) ? 'この明細はすでに削除されています。' : transaction ? '保存できませんでした。' : '登録できませんでした。' }}
       </p>
       <div class="modal-action justify-between">
         <button

@@ -4,6 +4,18 @@ import type { Api } from '../worker/api'
 import { ANOTHER_USER_ERROR, EXPECTED_USER_HEADER } from '../worker/session'
 import { currentUser, sessionEnded } from './session'
 
+// Keeps the status of a failed response, so a caller can tell a status it handles, such as a 404, from other failures
+export class ResponseError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+export const isNotFound = (error: unknown) => error instanceof ResponseError && error.status === 404
+
 export const api = hc<Api>('/api', {
   fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers)

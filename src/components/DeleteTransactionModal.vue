@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { onMounted, useTemplateRef } from 'vue'
 
-import { api } from '../api'
+import { api, isNotFound, ResponseError } from '../api'
 import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
 import { formatDay, formatTime } from '../finances/datetime'
 import type { Transaction } from '../types'
@@ -17,11 +17,11 @@ onMounted(() => dialog.value?.showModal())
 
 const queryClient = useQueryClient()
 
-const { mutate, isPending, isError } = useMutation({
+const { mutate, isPending, isError, error } = useMutation({
   mutationFn: async () => {
     const res = await api.finances.transactions[':id'].$delete({ param: { id: String(transaction.id) } })
     if (!res.ok) {
-      throw new Error(`/api/finances/transactions failed: ${res.status}`)
+      throw new ResponseError(`/api/finances/transactions failed: ${res.status}`, res.status)
     }
   },
   // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the fetch
@@ -29,6 +29,12 @@ const { mutate, isPending, isError } = useMutation({
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
+  },
+  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
+  onError: (mutationError) => {
+    if (isNotFound(mutationError)) {
+      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+    }
   },
 })
 
@@ -75,7 +81,7 @@ const amountFormat = new Intl.NumberFormat('ja-JP')
         role="alert"
         class="alert alert-soft alert-error"
       >
-        削除できませんでした。
+        {{ isNotFound(error) ? 'この明細はすでに削除されています。' : '削除できませんでした。' }}
       </p>
       <div class="modal-action justify-between">
         <button

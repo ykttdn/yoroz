@@ -118,6 +118,17 @@ describe('TransactionModal', () => {
       expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
       expect(wrapper.get('[role="alert"]').text()).toBe('保存できませんでした。')
     })
+
+    it('stays open saying so when the transaction to edit was already deleted', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
+      const wrapper = mountTransactionModal({ transaction: transactionToEdit })
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
+      expect(wrapper.get('[role="alert"]').text()).toBe('この明細はすでに削除されています。')
+    })
   })
 
   describe('while the request is pending', () => {

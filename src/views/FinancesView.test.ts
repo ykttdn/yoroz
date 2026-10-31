@@ -331,6 +331,39 @@ describe('FinancesView', () => {
 
       expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
     })
+
+    it('fetches the month again when the transaction to edit was already deleted', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(requestedUrls(fetchSpy)).toEqual([
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+      ])
+    })
+
+    it('focuses the add button once the edit modal is cancelled after the transaction turned out to be deleted', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+
+      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+    })
   })
 
   describe('deleting from the menu', () => {
@@ -363,6 +396,39 @@ describe('FinancesView', () => {
       await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
       await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
       await flushPromises()
+
+      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+    })
+
+    it('fetches the month again when the transaction to delete was already deleted', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await flushPromises()
+
+      expect(requestedUrls(fetchSpy)).toEqual([
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+      ])
+    })
+
+    it('focuses the add button once the delete modal is cancelled after the transaction turned out to be deleted', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await flushPromises()
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
 
       expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
     })
