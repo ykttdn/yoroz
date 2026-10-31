@@ -3,6 +3,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createQueryClient } from '../queryClient'
+import { pressEscape } from '../test/helpers'
 import TransactionModal from './TransactionModal.vue'
 
 const addedTransaction = { id: 1, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' }
@@ -15,16 +16,6 @@ const fillForm = async (wrapper: ReturnType<typeof mountTransactionModal>) => {
   await wrapper.get('#transaction-amount').setValue('1111')
   await wrapper.get('#transaction-occurred-at').setValue('2026-09-01T00:00')
   await wrapper.get('#transaction-memo').setValue('テストメモ')
-}
-
-// happy-dom does not close a dialog on Escape, so whether the events that would close it were prevented is checked instead.
-// The keydown starts at the body, where focus goes once the submit button is disabled
-const pressEscape = (dialog: Element) => {
-  const keydown = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-  const cancel = new Event('cancel', { cancelable: true })
-  document.body.dispatchEvent(keydown)
-  dialog.dispatchEvent(cancel)
-  return { keydownPrevented: keydown.defaultPrevented, cancelPrevented: cancel.defaultPrevented }
 }
 
 enableAutoUnmount(afterEach)

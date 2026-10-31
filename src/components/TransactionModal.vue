@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { onMounted, ref, useTemplateRef } from 'vue'
 
 import { MAX_AMOUNT, MAX_MEMO_LENGTH } from '../../worker/finances/limits'
 import { api } from '../api'
+import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
 import { fromDateTimeLocal, MAX_DATE_TIME_LOCAL, MIN_DATE_TIME_LOCAL, toDateTimeLocal } from '../finances/datetime'
 import type { Transaction } from '../types'
 
@@ -36,17 +36,7 @@ const { mutate, isPending, isError } = useMutation({
   },
 })
 
-// Closing unmounts the form while the request goes on, so its result could no longer be shown
-const keepOpenWhilePending = (event: Event) => {
-  if (isPending.value) {
-    event.preventDefault()
-  }
-}
-
-// Escape's keydown is prevented as well, since Chrome lets a cancel event be prevented only once after each user action.
-// The keydown is listened for on the window rather than the dialog, since disabling the submit button moves focus to
-// the body, where it no longer passes through the dialog
-onKeyStroke('Escape', keepOpenWhilePending)
+const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
 </script>
 
 <template>
@@ -54,7 +44,7 @@ onKeyStroke('Escape', keepOpenWhilePending)
     ref="dialog"
     class="modal"
     aria-labelledby="transaction-modal-title"
-    @cancel="keepOpenWhilePending"
+    @cancel="preventCloseWhilePending"
     @close="emit('close')"
   >
     <form
