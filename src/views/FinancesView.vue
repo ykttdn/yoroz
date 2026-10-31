@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
 import { api } from '../api'
 import ClampedText from '../components/ClampedText.vue'
+import DeleteTransactionModal from '../components/DeleteTransactionModal.vue'
 import TransactionModal from '../components/TransactionModal.vue'
 import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from '../finances/datetime'
 import type { Transaction } from '../types'
@@ -14,6 +15,7 @@ const route = useRoute()
 
 const isAddingTransaction = ref(false)
 const transactionToEdit = ref<Transaction>()
+const transactionToDelete = ref<Transaction>()
 
 const menuButtonId = (transaction: Transaction) => `transaction-${transaction.id}-menu-button`
 
@@ -100,6 +102,11 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
       v-if="transactionToEdit"
       :transaction="transactionToEdit"
       @close="transactionToEdit = undefined"
+    />
+    <DeleteTransactionModal
+      v-if="transactionToDelete"
+      :transaction="transactionToDelete"
+      @close="transactionToDelete = undefined"
     />
     <template v-if="yearMonth === undefined">
       <div
@@ -229,6 +236,15 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
                     @click="focusMenuButton(transaction); transactionToEdit = transaction"
                   >
                     編集
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="text-error"
+                    @click="focusMenuButton(transaction); transactionToDelete = transaction"
+                  >
+                    削除
                   </button>
                 </li>
               </ul>

@@ -293,4 +293,25 @@ describe('FinancesView', () => {
       expect(wrapper.find('dialog').exists()).toBe(false)
     })
   })
+
+  describe('deleting from the menu', () => {
+    it('fetches the month again and removes the modal once a transaction is deleted from its menu', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => new Response(null, { status: 204 }))
+        .mockImplementationOnce(async () => Response.json([]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await flushPromises()
+
+      expect(requestedUrls(fetchSpy)).toEqual([
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+      ])
+      expect(wrapper.find('dialog').exists()).toBe(false)
+    })
+  })
 })
