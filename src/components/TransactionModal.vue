@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onKeyStroke } from '@vueuse/core'
 import { onMounted, ref, useTemplateRef } from 'vue'
 
 import { MAX_AMOUNT, MAX_MEMO_LENGTH } from '../../worker/finances/limits'
-import { api } from '../api'
+import { api, isNotFound, ResponseError } from '../api'
+import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
 import { fromDateTimeLocal, MAX_DATE_TIME_LOCAL, MIN_DATE_TIME_LOCAL, toDateTimeLocal } from '../finances/datetime'
 import type { Transaction } from '../types'
+
+// Edits the transaction when one is given, and adds a new one otherwise
+const { transaction = undefined } = defineProps<{ transaction?: Transaction }>()
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -14,39 +17,38 @@ const dialog = useTemplateRef('dialog')
 
 onMounted(() => dialog.value?.showModal())
 
-const kind = ref<Transaction['kind']>('expense')
-const amount = ref<number | ''>('')
-const occurredAt = ref(toDateTimeLocal(new Date()))
-const memo = ref('')
+const kind = ref<Transaction['kind']>(transaction?.kind ?? 'expense')
+const amount = ref<number | ''>(transaction?.amount ?? '')
+const occurredAt = ref(toDateTimeLocal(transaction ? new Date(transaction.occurredAt) : new Date()))
+const memo = ref(transaction?.memo ?? '')
 
 const queryClient = useQueryClient()
 
-const { mutate, isPending, isError } = useMutation({
+const { mutate, isPending, isError, error } = useMutation({
   mutationFn: async () => {
-    const res = await api.finances.transactions.$post({
-      json: { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value },
-    })
+    const json = { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value }
+    const res = transaction
+      ? await api.finances.transactions[':id'].$put({ param: { id: String(transaction.id) }, json })
+      : await api.finances.transactions.$post({ json })
     if (!res.ok) {
-      throw new Error(`/api/finances/transactions failed: ${res.status}`)
+      throw new ResponseError(`/api/finances/transactions failed: ${res.status}`, res.status)
     }
   },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+  // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the fetch
+  // then replaces or removes, which would leave focus on the body
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
+  },
+  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
+  onError: (mutationError) => {
+    if (isNotFound(mutationError)) {
+      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+    }
   },
 })
 
-// Closing unmounts the form while the request goes on, so its result could no longer be shown
-const keepOpenWhilePending = (event: Event) => {
-  if (isPending.value) {
-    event.preventDefault()
-  }
-}
-
-// Escape's keydown is prevented as well, since Chrome lets a cancel event be prevented only once after each user action.
-// The keydown is listened for on the window rather than the dialog, since disabling the submit button moves focus to
-// the body, where it no longer passes through the dialog
-onKeyStroke('Escape', keepOpenWhilePending)
+const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
 </script>
 
 <template>
@@ -54,7 +56,7 @@ onKeyStroke('Escape', keepOpenWhilePending)
     ref="dialog"
     class="modal"
     aria-labelledby="transaction-modal-title"
-    @cancel="keepOpenWhilePending"
+    @cancel="preventCloseWhilePending"
     @close="emit('close')"
   >
     <form
@@ -65,7 +67,7 @@ onKeyStroke('Escape', keepOpenWhilePending)
         id="transaction-modal-title"
         class="text-lg font-bold"
       >
-        明細を追加
+        {{ transaction ? '明細を編集' : '明細を追加' }}
       </h2>
       <div class="fieldset">
         <!-- The legend and the buttons aren't items of the outer grid, so they get none of its gap and the padding adds the same space -->
@@ -136,7 +138,7 @@ onKeyStroke('Escape', keepOpenWhilePending)
         role="alert"
         class="alert alert-soft alert-error"
       >
-        登録できませんでした。
+        {{ isNotFound(error) ? 'この明細はすでに削除されています。' : transaction ? '保存できませんでした。' : '登録できませんでした。' }}
       </p>
       <div class="modal-action justify-between">
         <button
@@ -156,7 +158,7 @@ onKeyStroke('Escape', keepOpenWhilePending)
             v-if="isPending"
             class="loading loading-spinner"
           />
-          登録
+          {{ transaction ? '保存' : '登録' }}
         </button>
       </div>
     </form>

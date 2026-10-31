@@ -1,18 +1,39 @@
 <script setup lang="ts">
 import { skipToken, useQuery } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
 import { api } from '../api'
 import ClampedText from '../components/ClampedText.vue'
+import DeleteTransactionModal from '../components/DeleteTransactionModal.vue'
 import TransactionModal from '../components/TransactionModal.vue'
 import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from '../finances/datetime'
 import type { Transaction } from '../types'
 
 const route = useRoute()
 
-const adding = ref(false)
+const isAddingTransaction = ref(false)
+const transactionToEdit = ref<Transaction>()
+const transactionToDelete = ref<Transaction>()
+
+const addButton = useTemplateRef('addButton')
+
+const menuButtonId = (transaction: Transaction) => `transaction-${transaction.id}-menu-button`
+
+// showModal closes the menu, so the dialog could not give focus back to the menu item it was opened from and would leave
+// it on the body. Focusing the menu's button before showModal makes the dialog give focus back to that button instead
+const focusMenuButton = (transaction: Transaction) => document.getElementById(menuButtonId(transaction))?.focus()
+
+// Fetching the month again while a modal is open replaces the transaction's row when its day changed and removes it when
+// it left the month or was deleted, so the menu button the dialog gave focus back to may no longer be in the page, leaving
+// focus on the body. The row's current menu button, or the add button when the row is gone, takes focus instead
+const closeTransactionMenuModal = (transaction: Transaction) => {
+  transactionToEdit.value = undefined
+  transactionToDelete.value = undefined
+  const focusTarget = document.getElementById(menuButtonId(transaction)) ?? addButton.value
+  focusTarget?.focus()
+}
 
 const yearMonth = computed(() => {
   const { month } = route.query
@@ -78,16 +99,27 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
         家計簿
       </h1>
       <button
+        ref="addButton"
         type="button"
         class="btn btn-primary"
-        @click="adding = true"
+        @click="isAddingTransaction = true"
       >
         明細を追加
       </button>
     </div>
     <TransactionModal
-      v-if="adding"
-      @close="adding = false"
+      v-if="isAddingTransaction"
+      @close="isAddingTransaction = false"
+    />
+    <TransactionModal
+      v-if="transactionToEdit"
+      :transaction="transactionToEdit"
+      @close="closeTransactionMenuModal(transactionToEdit!)"
+    />
+    <DeleteTransactionModal
+      v-if="transactionToDelete"
+      :transaction="transactionToDelete"
+      @close="closeTransactionMenuModal(transactionToDelete!)"
     />
     <template v-if="yearMonth === undefined">
       <div
@@ -180,9 +212,9 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
             <li
               v-for="transaction in group.transactions"
               :key="transaction.id"
-              class="flex items-center justify-between gap-4 px-4 py-3"
+              class="flex items-center gap-2 py-3 pr-2 pl-4"
             >
-              <div class="flex min-w-0 flex-col gap-0.5">
+              <div class="flex min-w-0 grow flex-col gap-0.5">
                 <ClampedText
                   v-if="transaction.memo"
                   :text="transaction.memo"
@@ -190,9 +222,45 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
                 <span class="text-xs text-base-content/60">{{ formatTime(transaction.occurredAt) }}</span>
               </div>
               <span
-                class="shrink-0 text-base font-bold"
+                class="ml-2 shrink-0 text-base font-bold"
                 :class="transaction.kind === 'expense' ? 'text-red-600' : 'text-green-700'"
               >{{ formatAmount(transaction) }}<small class="ml-0.5 text-xs">円</small></span>
+              <!-- Without popover, the menu would need its own handling to close on an outside click or on Escape -->
+              <button
+                :id="menuButtonId(transaction)"
+                type="button"
+                class="btn btn-square btn-ghost btn-sm"
+                :aria-label="`${formatDay(transaction.occurredAt)} ${formatTime(transaction.occurredAt)} ${formatAmount(transaction)}円の操作`"
+                :popovertarget="`transaction-${transaction.id}-menu`"
+                :style="`anchor-name: --transaction-${transaction.id}-menu`"
+              >
+                ⋮
+              </button>
+              <!-- Without the flip, the menu of a row near the bottom of the screen opens below the screen, out of reach -->
+              <ul
+                :id="`transaction-${transaction.id}-menu`"
+                popover
+                class="menu dropdown dropdown-end w-32 rounded-box bg-base-100 shadow-sm [position-try-fallbacks:flip-block]"
+                :style="`position-anchor: --transaction-${transaction.id}-menu`"
+              >
+                <li>
+                  <button
+                    type="button"
+                    @click="focusMenuButton(transaction); transactionToEdit = transaction"
+                  >
+                    編集
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="text-error"
+                    @click="focusMenuButton(transaction); transactionToDelete = transaction"
+                  >
+                    削除
+                  </button>
+                </li>
+              </ul>
             </li>
           </ul>
         </section>
