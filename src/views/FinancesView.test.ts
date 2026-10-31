@@ -59,10 +59,21 @@ describe('FinancesView', () => {
     expect(wrapper.get('h2').text()).toBe('2026年9月')
     expect(wrapper.findAll('section').map(section => [
       section.get('h3').text(),
-      section.findAll('li').map(row => row.findAll('p, span').map(cell => cell.text())),
+      section.findAll('section > ul > li').map(row => row.findAll('p, span').map(cell => cell.text())),
     ])).toEqual([
       ['9/2(水)', [['テストメモ3', '09:30', '-3,333円']]],
       ['9/1(火)', [['テストメモ2', '12:30', '-2,222円'], ['00:00', '+1,111円']]],
+    ])
+  })
+
+  it('names each menu button after the time and amount of its transaction', async () => {
+    stubTransactions([expenseOnSeptember1, incomeAtStartOfSeptember])
+
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    expect(wrapper.findAll('[popovertarget]').map(button => button.attributes('aria-label'))).toEqual([
+      '9/1(火) 12:30 -2,222円の操作',
+      '9/1(火) 00:00 +1,111円の操作',
     ])
   })
 
@@ -71,7 +82,7 @@ describe('FinancesView', () => {
 
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-    const amounts = wrapper.findAll('li').map(row => row.findAll('span').at(-1)?.classes())
+    const amounts = wrapper.findAll('section > ul > li').map(row => row.findAll('span').at(-1)?.classes())
     expect(amounts[0]).toContain('text-red-600')
     expect(amounts[1]).toContain('text-green-700')
   })
@@ -251,5 +262,35 @@ describe('FinancesView', () => {
       expect.stringContaining('/api/finances/transactions?month=2026-09'),
     ])
     expect(wrapper.find('dialog').exists()).toBe(false)
+  })
+
+  it('focuses the menu button of the transaction before opening a modal from its menu', async () => {
+    stubTransactions([expenseOnSeptember2, expenseOnSeptember1])
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+
+    expect(document.activeElement).toBe(wrapper.get('#transaction-2-menu-button').element)
+  })
+
+  describe('editing from the menu', () => {
+    it('fetches the month again and removes the modal once a transaction is edited from its menu', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
+        .mockImplementationOnce(async () => Response.json(expenseOnSeptember1))
+        .mockImplementationOnce(async () => Response.json([]))
+      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(requestedUrls(fetchSpy)).toEqual([
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
+        expect.stringContaining('/api/finances/transactions?month=2026-09'),
+      ])
+      expect(wrapper.find('dialog').exists()).toBe(false)
+    })
   })
 })

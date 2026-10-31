@@ -8,24 +8,28 @@ import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhile
 import { fromDateTimeLocal, MAX_DATE_TIME_LOCAL, MIN_DATE_TIME_LOCAL, toDateTimeLocal } from '../finances/datetime'
 import type { Transaction } from '../types'
 
+// Edits the transaction when one is given, and adds a new one otherwise
+const { transaction = undefined } = defineProps<{ transaction?: Transaction }>()
+
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = useTemplateRef('dialog')
 
 onMounted(() => dialog.value?.showModal())
 
-const kind = ref<Transaction['kind']>('expense')
-const amount = ref<number | ''>('')
-const occurredAt = ref(toDateTimeLocal(new Date()))
-const memo = ref('')
+const kind = ref<Transaction['kind']>(transaction?.kind ?? 'expense')
+const amount = ref<number | ''>(transaction?.amount ?? '')
+const occurredAt = ref(toDateTimeLocal(transaction ? new Date(transaction.occurredAt) : new Date()))
+const memo = ref(transaction?.memo ?? '')
 
 const queryClient = useQueryClient()
 
 const { mutate, isPending, isError } = useMutation({
   mutationFn: async () => {
-    const res = await api.finances.transactions.$post({
-      json: { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value },
-    })
+    const json = { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value }
+    const res = transaction
+      ? await api.finances.transactions[':id'].$put({ param: { id: String(transaction.id) }, json })
+      : await api.finances.transactions.$post({ json })
     if (!res.ok) {
       throw new Error(`/api/finances/transactions failed: ${res.status}`)
     }
@@ -55,7 +59,7 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         id="transaction-modal-title"
         class="text-lg font-bold"
       >
-        明細を追加
+        {{ transaction ? '明細を編集' : '明細を追加' }}
       </h2>
       <div class="fieldset">
         <!-- The legend and the buttons aren't items of the outer grid, so they get none of its gap and the padding adds the same space -->
@@ -126,7 +130,7 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         role="alert"
         class="alert alert-soft alert-error"
       >
-        登録できませんでした。
+        {{ transaction ? '保存できませんでした。' : '登録できませんでした。' }}
       </p>
       <div class="modal-action justify-between">
         <button
@@ -146,7 +150,7 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
             v-if="isPending"
             class="loading loading-spinner"
           />
-          登録
+          {{ transaction ? '保存' : '登録' }}
         </button>
       </div>
     </form>
