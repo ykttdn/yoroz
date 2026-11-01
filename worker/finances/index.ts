@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 
 import { db } from '../db'
 import type { AppEnv } from '../types'
-import { createTransaction, deleteTransaction, listTransactions, updateTransaction } from './repository'
+import { createTransaction, deleteTransaction, listCategories, listTransactions, updateTransaction } from './repository'
 import { idParamValidator, jsonValidator, monthQueryValidator, transactionBodyValidator } from './validators'
 
 const finances = new Hono<AppEnv>()
@@ -27,6 +27,10 @@ const finances = new Hono<AppEnv>()
       return c.json({ error: 'Not found' }, 404)
     }
     return c.body(null, 204)
+  })
+  .get('/categories', async (c) => {
+    const userCategories = await listCategories(db, c.get('user').id)
+    return c.json(userCategories)
   })
 
 export default finances

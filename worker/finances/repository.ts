@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lt } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 
-import { transactions } from '../db/schema'
+import { categories, transactions } from '../db/schema'
 
 const transactionColumns = {
   id: transactions.id,
@@ -47,3 +47,15 @@ export const deleteTransaction = async (db: DrizzleD1Database, userId: number, i
     .run()
   return meta.changes > 0
 }
+
+const categoryColumns = {
+  id: categories.id,
+  name: categories.name,
+  kind: categories.kind,
+}
+
+export const listCategories = (db: DrizzleD1Database, userId: number) =>
+  db.select(categoryColumns)
+    .from(categories)
+    .where(eq(categories.userId, userId))
+    .orderBy(asc(categories.id))

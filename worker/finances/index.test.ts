@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { transactions, users } from '../db/schema'
+import { categories, transactions, users } from '../db/schema'
 import app from '../index'
 import { SESSION_COOKIE } from '../session'
 import { client, signedSession } from '../test/helpers'
@@ -28,6 +28,16 @@ const insertTransaction = async (userId: number, occurredAt: string, values: Par
   return transaction.id
 }
 
+const categoriesApi = ({ session }: { session: string }) => client({ session }).api.finances.categories
+
+const insertCategory = async (userId: number, name: string, kind: 'expense' | 'income' = 'expense') => {
+  const [category] = await db
+    .insert(categories)
+    .values({ userId, name, kind })
+    .returning({ id: categories.id })
+  return category.id
+}
+
 const malformedIds: [string, (id: number) => string][] = [
   ['a word', () => 'abc'],
   ['a hex', id => `0x${id.toString(16)}`],
@@ -38,6 +48,7 @@ const malformedIds: [string, (id: number) => string][] = [
 describe('/api/finances', () => {
   beforeEach(async () => {
     await db.delete(transactions)
+    await db.delete(categories)
     await db.delete(users)
   })
 
@@ -353,6 +364,28 @@ describe('/api/finances', () => {
       expect(res.status).toBe(403)
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+  })
+
+  describe('GET /api/finances/categories', () => {
+    it('returns the ID, name, and kind of a category', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A', 'income')
+
+      const res = await categoriesApi(alice).$get()
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual([{ id: categoryId, name: 'Test category A', kind: 'income' }])
+    })
+
+    it('leaves out the categories of other users', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      await insertCategory(bob.id, 'Test category A')
+
+      const res = await categoriesApi(alice).$get()
+
+      expect(await res.json()).toEqual([])
     })
   })
 
