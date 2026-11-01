@@ -2,8 +2,8 @@ import { Hono } from 'hono'
 
 import { db } from '../db'
 import type { AppEnv } from '../types'
-import { createTransaction, deleteTransaction, listCategories, listTransactions, updateTransaction } from './repository'
-import { idParamValidator, jsonValidator, monthQueryValidator, transactionBodyValidator } from './validators'
+import { createCategory, createTransaction, deleteTransaction, isDuplicateCategoryName, listCategories, listTransactions, updateTransaction } from './repository'
+import { categoryBodyValidator, idParamValidator, jsonValidator, monthQueryValidator, transactionBodyValidator } from './validators'
 
 const finances = new Hono<AppEnv>()
   .get('/transactions', monthQueryValidator, async (c) => {
@@ -31,6 +31,17 @@ const finances = new Hono<AppEnv>()
   .get('/categories', async (c) => {
     const userCategories = await listCategories(db, c.get('user').id)
     return c.json(userCategories)
+  })
+  .post('/categories', jsonValidator, categoryBodyValidator, async (c) => {
+    try {
+      const category = await createCategory(db, c.get('user').id, c.req.valid('json'))
+      return c.json(category, 201)
+    } catch (error) {
+      if (isDuplicateCategoryName(error)) {
+        return c.json({ error: 'A category with this name already exists' }, 409)
+      }
+      throw error
+    }
   })
 
 export default finances

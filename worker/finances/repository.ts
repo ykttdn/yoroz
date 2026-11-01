@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, desc, DrizzleQueryError, eq, gte, lt } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 
 import { categories, transactions } from '../db/schema'
@@ -59,3 +59,19 @@ export const listCategories = (db: DrizzleD1Database, userId: number) =>
     .from(categories)
     .where(eq(categories.userId, userId))
     .orderBy(asc(categories.id))
+
+export const createCategory = async (
+  db: DrizzleD1Database,
+  userId: number,
+  values: Pick<typeof categories.$inferInsert, 'name' | 'kind'>,
+) => {
+  const [category] = await db
+    .insert(categories)
+    .values({ ...values, userId })
+    .returning(categoryColumns)
+  return category
+}
+
+export const isDuplicateCategoryName = (error: unknown) =>
+  error instanceof DrizzleQueryError
+  && error.cause?.message.includes('UNIQUE constraint failed: categories.user_id, categories.kind, categories.name') === true

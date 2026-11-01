@@ -389,12 +389,107 @@ describe('/api/finances', () => {
     })
   })
 
+  describe('POST /api/finances/categories', () => {
+    const body = { name: 'Test category A', kind: 'expense' as const }
+
+    it('creates a category for the signed-in user', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+      const created = await res.json()
+      expect(created).toEqual({ id: expect.any(Number), ...body })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([created])
+    })
+
+    it('removes half-width and full-width spaces around the name', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice).$post({ json: { ...body, name: ' 　Test category A　 ' } })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body })
+    })
+
+    it('accepts the longest name', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const json = { ...body, name: 'a'.repeat(30) }
+
+      const res = await categoriesApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...json })
+    })
+
+    it('measures the length of a name after composing decomposed katakana', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      // 60 characters as sent, but 30 once each voiced pair becomes one character
+      const res = await categoriesApi(alice).$post({ json: { ...body, name: 'ガ'.normalize('NFD').repeat(30) } })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body, name: 'ガ'.repeat(30) })
+    })
+
+    it.each([
+      ['null as the body', null, 'The body must be a JSON object'],
+      ['a name of only spaces', { ...body, name: ' 　 ' }, 'name must not be empty'],
+      ['a name over the limit', { ...body, name: 'a'.repeat(31) }, 'name must be at most 30 characters'],
+      ['a name that is not a string', { ...body, name: 1 }, 'name must be a string'],
+      ['an unknown kind', { ...body, kind: 'transfer' }, 'kind must be expense or income'],
+    ])('rejects %s', async (_, json, error) => {
+      const alice = await signedInUser('alice@example.com')
+
+      // @ts-expect-error The type rules these bodies out, but the server still has to reject them
+      const res = await categoriesApi(alice).$post({ json })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([])
+    })
+
+    it('rejects a name the user already has under the same kind', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const existingId = await insertCategory(alice.id, body.name, body.kind)
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ error: 'A category with this name already exists' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([{ id: existingId, ...body }])
+    })
+
+    it('accepts a name the user already has under the other kind', async () => {
+      const alice = await signedInUser('alice@example.com')
+      await insertCategory(alice.id, body.name, 'income')
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+    })
+
+    it('accepts a name that another user already has', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      await insertCategory(bob.id, body.name)
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+    })
+  })
+
   describe('a request body that is not JSON', () => {
     // jsonValidator is attached to each route on its own, so a route taking a JSON body
     // goes unchecked unless it has a row here
     const routesTakingJson = [
       ['POST', '/api/finances/transactions'],
       ['PUT', '/api/finances/transactions/1'],
+      ['POST', '/api/finances/categories'],
     ]
 
     // Sent without the typed client, so that each route needs only a method and a path in the table
