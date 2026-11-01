@@ -59,19 +59,30 @@ export const transactionBodyValidator = zValidator('json',
   },
 )
 
-export const categoryBodyValidator = zValidator('json',
+// Normalized and trimmed before the checks, so that the length checks see a name of only spaces as empty
+// and a decomposed kana as one character, and the unique constraint sees the same name in decomposed kana
+// or with padding as a duplicate
+const categoryNameSchema = z.string({ error: 'name must be a string' })
+  .normalize('NFC')
+  .trim()
+  .min(1, { error: 'name must not be empty' })
+  .max(MAX_CATEGORY_NAME_LENGTH, { error: `name must be at most ${MAX_CATEGORY_NAME_LENGTH} characters` })
+
+export const createCategoryBodyValidator = zValidator('json',
   z.object({
-    // Normalized and trimmed before the checks, so that the length checks see a name of only spaces as empty
-    // and a decomposed kana as one character, and the unique constraint sees the same name in decomposed kana
-    // or with padding as a duplicate
-    name: z.string({ error: 'name must be a string' })
-      .normalize('NFC')
-      .trim()
-      .min(1, { error: 'name must not be empty' })
-      .max(MAX_CATEGORY_NAME_LENGTH, { error: `name must be at most ${MAX_CATEGORY_NAME_LENGTH} characters` }),
+    name: categoryNameSchema,
     kind: z.enum(categories.kind.enumValues, { error: KIND_ERROR }),
   },
   { error: 'The body must be a JSON object' }),
+  (result, c) => {
+    if (!result.success) {
+      return c.json({ error: result.error.issues[0].message }, 400)
+    }
+  },
+)
+
+export const renameCategoryBodyValidator = zValidator('json',
+  z.object({ name: categoryNameSchema }, { error: 'The body must be a JSON object' }),
   (result, c) => {
     if (!result.success) {
       return c.json({ error: result.error.issues[0].message }, 400)
