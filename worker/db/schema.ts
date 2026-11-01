@@ -17,7 +17,7 @@ export const categories = sqliteTable('categories', {
   kind: text({ enum: ['expense', 'income'] }).notNull(),
 }, table => [
   unique('categories_user_id_id_unique').on(table.userId, table.id),
-  unique('categories_user_id_name_unique').on(table.userId, table.name),
+  unique('categories_user_id_kind_name_unique').on(table.userId, table.kind, table.name),
   check('categories_kind_check', sql`${table.kind} IN ('expense', 'income')`),
 ])
 

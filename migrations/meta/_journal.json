@@ -15,6 +15,13 @@
       "when": 1790776873561,
       "tag": "0001_create_transactions_and_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793547437360,
+      "tag": "0002_unique_category_names_per_kind",
+      "breakpoints": true
     }
   ]
 }
