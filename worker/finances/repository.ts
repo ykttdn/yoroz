@@ -81,6 +81,18 @@ export const renameCategory = async (db: DrizzleD1Database, userId: number, id: 
   return renamed.at(0)
 }
 
+export const deleteCategory = async (db: DrizzleD1Database, userId: number, id: number) => {
+  const [, deleted] = await db.batch([
+    db.update(transactions)
+      .set({ categoryId: null })
+      .where(and(eq(transactions.userId, userId), eq(transactions.categoryId, id))),
+    db.delete(categories)
+      .where(and(eq(categories.id, id), eq(categories.userId, userId)))
+      .returning({ id: categories.id }),
+  ])
+  return deleted.length > 0
+}
+
 export const isDuplicateCategoryName = (error: unknown) =>
   error instanceof DrizzleQueryError
   && error.cause?.message.includes('UNIQUE constraint failed: categories.user_id, categories.kind, categories.name') === true

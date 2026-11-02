@@ -605,6 +605,78 @@ describe('/api/finances', () => {
     })
   })
 
+  describe('DELETE /api/finances/categories/:id', () => {
+    const transactionCategoryId = async (transactionId: number) => {
+      const [row] = await db
+        .select({ categoryId: transactions.categoryId })
+        .from(transactions)
+        .where(eq(transactions.id, transactionId))
+      return row.categoryId
+    }
+
+    it('deletes only the category with the id', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+      const otherId = await insertCategory(alice.id, 'Test category B')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(204)
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: otherId })])
+    })
+
+    it('removes the deleted category from its own transactions only', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+      const otherId = await insertCategory(alice.id, 'Test category B')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { categoryId })
+      const otherTransactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { categoryId: otherId })
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(204)
+      expect(await transactionCategoryId(transactionId)).toBeNull()
+      expect(await transactionCategoryId(otherTransactionId)).toBe(otherId)
+    })
+
+    it('does not find a category of another user and keeps its transactions in it', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      const categoryId = await insertCategory(bob.id, 'Test category A')
+      const transactionId = await insertTransaction(bob.id, '2026-09-27T01:30:00.000Z', { categoryId })
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(bob).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId })])
+      expect(await transactionCategoryId(transactionId)).toBe(categoryId)
+    })
+
+    it('does not find a category that does not exist', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: '1' } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+    })
+
+    it.each(malformedIds)('does not find a category for an id written as %s', async (_, write) => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: write(categoryId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId })])
+    })
+  })
+
   describe('a request body that is not JSON', () => {
     // jsonValidator is attached to each route on its own, so a route taking a JSON body
     // goes unchecked unless it has a row here

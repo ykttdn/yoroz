@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 
 import { db } from '../db'
 import type { AppEnv } from '../types'
-import { createCategory, createTransaction, deleteTransaction, isDuplicateCategoryName, listCategories, listTransactions, renameCategory, updateTransaction } from './repository'
+import { createCategory, createTransaction, deleteCategory, deleteTransaction, isDuplicateCategoryName, listCategories, listTransactions, renameCategory, updateTransaction } from './repository'
 import { createCategoryBodyValidator, idParamValidator, jsonValidator, monthQueryValidator, renameCategoryBodyValidator, transactionBodyValidator } from './validators'
 
 const DUPLICATE_CATEGORY_NAME_ERROR = 'A category with this name already exists'
@@ -58,6 +58,13 @@ const finances = new Hono<AppEnv>()
       }
       throw error
     }
+  })
+  .delete('/categories/:id', idParamValidator, async (c) => {
+    const deleted = await deleteCategory(db, c.get('user').id, c.req.valid('param').id)
+    if (!deleted) {
+      return c.json({ error: 'Not found' }, 404)
+    }
+    return c.body(null, 204)
   })
 
 export default finances
