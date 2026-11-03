@@ -4,6 +4,8 @@ import { drizzle } from 'drizzle-orm/d1'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { transactions, users } from '../db/schema'
+import app from '../index'
+import { SESSION_COOKIE } from '../session'
 import { client, signedSession } from '../test/helpers'
 
 const db = drizzle(env.DB)
@@ -198,29 +200,6 @@ describe('/api/finances', () => {
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([])
     })
-
-    it('rejects a body that is not valid JSON', async () => {
-      const alice = await signedInUser('alice@example.com')
-
-      // json sets the JSON Content-Type, and init replaces only the body the client built from it
-      const res = await transactionsApi(alice).$post({ json: body }, { init: { body: '{"amount":' } })
-
-      expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'The body must be valid JSON' })
-    })
-
-    it('rejects a body sent without the JSON Content-Type', async () => {
-      const alice = await signedInUser('alice@example.com')
-
-      // Passing undefined instead of json leaves the Content-Type unset, so fetch sends the body in init as text/plain
-      // @ts-expect-error The type requires json, but the server still has to reject a body sent another way
-      const res = await transactionsApi(alice).$post(undefined, { init: { body: JSON.stringify(body) } })
-
-      expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
-      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
-      expect(await list.json()).toEqual([])
-    })
   })
 
   describe('PUT /api/finances/transactions/:id', () => {
@@ -374,6 +353,40 @@ describe('/api/finances', () => {
       expect(res.status).toBe(403)
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+  })
+
+  describe('a request body that is not JSON', () => {
+    // jsonValidator is attached to each route on its own, so a route taking a JSON body
+    // goes unchecked unless it has a row here
+    const routesTakingJson = [
+      ['POST', '/api/finances/transactions'],
+      ['PUT', '/api/finances/transactions/1'],
+    ]
+
+    // Sent without the typed client, so that each route needs only a method and a path in the table
+    const sendBody = async (method: string, path: string, init: { headers?: Record<string, string>, body: string }) => {
+      const alice = await signedInUser('alice@example.com')
+      return app.request(path, {
+        method,
+        headers: { Origin: 'http://localhost', Cookie: `${SESSION_COOKIE}=${alice.session}`, ...init.headers },
+        body: init.body,
+      }, env)
+    }
+
+    it.each(routesTakingJson)('%s %s rejects a body that is not valid JSON', async (method, path) => {
+      const res = await sendBody(method, path, { headers: { 'Content-Type': 'application/json' }, body: '{"test":' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'The body must be valid JSON' })
+    })
+
+    it.each(routesTakingJson)('%s %s rejects a body sent without the JSON Content-Type', async (method, path) => {
+      // Without a Content-Type header, a string body is sent as text/plain
+      const res = await sendBody(method, path, { body: '{}' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
     })
   })
 })
