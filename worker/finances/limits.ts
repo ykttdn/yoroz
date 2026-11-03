@@ -2,3 +2,4 @@
 // without bundling Zod
 export const MAX_AMOUNT = 1_000_000
 export const MAX_MEMO_LENGTH = 200
+export const MAX_CATEGORY_NAME_LENGTH = 30

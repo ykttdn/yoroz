@@ -3,7 +3,9 @@ import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { transactions, users } from '../db/schema'
+import { categories, transactions, users } from '../db/schema'
+import app from '../index'
+import { SESSION_COOKIE } from '../session'
 import { client, signedSession } from '../test/helpers'
 
 const db = drizzle(env.DB)
@@ -26,6 +28,16 @@ const insertTransaction = async (userId: number, occurredAt: string, values: Par
   return transaction.id
 }
 
+const categoriesApi = ({ session }: { session: string }) => client({ session }).api.finances.categories
+
+const insertCategory = async (userId: number, name: string, kind: 'expense' | 'income' = 'expense') => {
+  const [category] = await db
+    .insert(categories)
+    .values({ userId, name, kind })
+    .returning({ id: categories.id })
+  return category.id
+}
+
 const malformedIds: [string, (id: number) => string][] = [
   ['a word', () => 'abc'],
   ['a hex', id => `0x${id.toString(16)}`],
@@ -36,6 +48,7 @@ const malformedIds: [string, (id: number) => string][] = [
 describe('/api/finances', () => {
   beforeEach(async () => {
     await db.delete(transactions)
+    await db.delete(categories)
     await db.delete(users)
   })
 
@@ -198,29 +211,6 @@ describe('/api/finances', () => {
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([])
     })
-
-    it('rejects a body that is not valid JSON', async () => {
-      const alice = await signedInUser('alice@example.com')
-
-      // json sets the JSON Content-Type, and init replaces only the body the client built from it
-      const res = await transactionsApi(alice).$post({ json: body }, { init: { body: '{"amount":' } })
-
-      expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'The body must be valid JSON' })
-    })
-
-    it('rejects a body sent without the JSON Content-Type', async () => {
-      const alice = await signedInUser('alice@example.com')
-
-      // Passing undefined instead of json leaves the Content-Type unset, so fetch sends the body in init as text/plain
-      // @ts-expect-error The type requires json, but the server still has to reject a body sent another way
-      const res = await transactionsApi(alice).$post(undefined, { init: { body: JSON.stringify(body) } })
-
-      expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
-      const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
-      expect(await list.json()).toEqual([])
-    })
   })
 
   describe('PUT /api/finances/transactions/:id', () => {
@@ -374,6 +364,352 @@ describe('/api/finances', () => {
       expect(res.status).toBe(403)
       const list = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
+    })
+  })
+
+  describe('GET /api/finances/categories', () => {
+    it('returns the ID, name, and kind of a category', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A', 'income')
+
+      const res = await categoriesApi(alice).$get()
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual([{ id: categoryId, name: 'Test category A', kind: 'income' }])
+    })
+
+    it('leaves out the categories of other users', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      await insertCategory(bob.id, 'Test category A')
+
+      const res = await categoriesApi(alice).$get()
+
+      expect(await res.json()).toEqual([])
+    })
+  })
+
+  describe('POST /api/finances/categories', () => {
+    const body = { name: 'Test category A', kind: 'expense' as const }
+
+    it('creates a category for the signed-in user', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+      const created = await res.json()
+      expect(created).toEqual({ id: expect.any(Number), ...body })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([created])
+    })
+
+    it('removes half-width and full-width spaces around the name', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice).$post({ json: { ...body, name: ' 　Test category A　 ' } })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body })
+    })
+
+    it('accepts the longest name', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const json = { ...body, name: 'a'.repeat(30) }
+
+      const res = await categoriesApi(alice).$post({ json })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...json })
+    })
+
+    it('measures the length of a name after composing decomposed katakana', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      // 60 characters as sent, but 30 once each voiced pair becomes one character
+      const res = await categoriesApi(alice).$post({ json: { ...body, name: 'ガ'.normalize('NFD').repeat(30) } })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ id: expect.any(Number), ...body, name: 'ガ'.repeat(30) })
+    })
+
+    it.each([
+      ['null as the body', null, 'The body must be a JSON object'],
+      ['a name of only spaces', { ...body, name: ' 　 ' }, 'name must not be empty'],
+      ['a name over the limit', { ...body, name: 'a'.repeat(31) }, 'name must be at most 30 characters'],
+      ['a name that is not a string', { ...body, name: 1 }, 'name must be a string'],
+      ['an unknown kind', { ...body, kind: 'transfer' }, 'kind must be expense or income'],
+    ])('rejects %s', async (_, json, error) => {
+      const alice = await signedInUser('alice@example.com')
+
+      // @ts-expect-error The type rules these bodies out, but the server still has to reject them
+      const res = await categoriesApi(alice).$post({ json })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([])
+    })
+
+    it('rejects a name the user already has under the same kind', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const existingId = await insertCategory(alice.id, body.name, body.kind)
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ error: 'A category with this name already exists' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([{ id: existingId, ...body }])
+    })
+
+    it('accepts a name the user already has under the other kind', async () => {
+      const alice = await signedInUser('alice@example.com')
+      await insertCategory(alice.id, body.name, 'income')
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+    })
+
+    it('accepts a name that another user already has', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      await insertCategory(bob.id, body.name)
+
+      const res = await categoriesApi(alice).$post({ json: body })
+
+      expect(res.status).toBe(201)
+    })
+  })
+
+  describe('PUT /api/finances/categories/:id', () => {
+    const body = { name: 'Test category renamed' }
+
+    it('renames the category', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A', 'income')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: body })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ id: categoryId, name: body.name, kind: 'income' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([{ id: categoryId, name: body.name, kind: 'income' }])
+    })
+
+    it('saves decomposed katakana as composed', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { name: 'テストカテゴリ'.normalize('NFD') } })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual(expect.objectContaining({ id: categoryId, name: 'テストカテゴリ' }))
+    })
+
+    it('ignores a kind in the body', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A', 'income')
+
+      // @ts-expect-error The type rules out a kind, but the server still has to leave the category's kind as it is
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { ...body, kind: 'expense' } })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ id: categoryId, name: body.name, kind: 'income' })
+    })
+
+    it('accepts the name the category already has', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { name: 'Test category A' } })
+
+      expect(res.status).toBe(200)
+    })
+
+    it('rejects a name another category has under the same kind and keeps the name', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+      await insertCategory(alice.id, body.name)
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: body })
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ error: 'A category with this name already exists' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([
+        expect.objectContaining({ id: categoryId, name: 'Test category A' }),
+        expect.objectContaining({ name: body.name }),
+      ])
+    })
+
+    it('accepts a name another category has under the other kind', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A', 'expense')
+      await insertCategory(alice.id, body.name, 'income')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: body })
+
+      expect(res.status).toBe(200)
+    })
+
+    it('does not find a category of another user', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      const categoryId = await insertCategory(bob.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(bob).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId, name: 'Test category A' })])
+    })
+
+    it('does not find a category that does not exist', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: '1' }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+    })
+
+    it.each(malformedIds)('does not find a category for an id written as %s', async (_, write) => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: write(categoryId) }, json: body })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId, name: 'Test category A' })])
+    })
+
+    it.each([
+      ['null as the body', null, 'The body must be a JSON object'],
+      ['a name of only spaces', { name: ' ' }, 'name must not be empty'],
+    ])('rejects %s and keeps the name', async (_, json, error) => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      // @ts-expect-error The type rules out null, but the server still has to reject it
+      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId, name: 'Test category A' })])
+    })
+  })
+
+  describe('DELETE /api/finances/categories/:id', () => {
+    const transactionCategoryId = async (transactionId: number) => {
+      const [row] = await db
+        .select({ categoryId: transactions.categoryId })
+        .from(transactions)
+        .where(eq(transactions.id, transactionId))
+      return row.categoryId
+    }
+
+    it('deletes only the category with the id', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+      const otherId = await insertCategory(alice.id, 'Test category B')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(204)
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: otherId })])
+    })
+
+    it('removes the deleted category from its own transactions only', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+      const otherId = await insertCategory(alice.id, 'Test category B')
+      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { categoryId })
+      const otherTransactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { categoryId: otherId })
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(204)
+      expect(await transactionCategoryId(transactionId)).toBeNull()
+      expect(await transactionCategoryId(otherTransactionId)).toBe(otherId)
+    })
+
+    it('does not find a category of another user and keeps its transactions in it', async () => {
+      const alice = await signedInUser('alice@example.com')
+      const bob = await signedInUser('bob@example.com')
+      const categoryId = await insertCategory(bob.id, 'Test category A')
+      const transactionId = await insertTransaction(bob.id, '2026-09-27T01:30:00.000Z', { categoryId })
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(bob).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId })])
+      expect(await transactionCategoryId(transactionId)).toBe(categoryId)
+    })
+
+    it('does not find a category that does not exist', async () => {
+      const alice = await signedInUser('alice@example.com')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: '1' } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+    })
+
+    it.each(malformedIds)('does not find a category for an id written as %s', async (_, write) => {
+      const alice = await signedInUser('alice@example.com')
+      const categoryId = await insertCategory(alice.id, 'Test category A')
+
+      const res = await categoriesApi(alice)[':id'].$delete({ param: { id: write(categoryId) } })
+
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'Not found' })
+      const list = await categoriesApi(alice).$get()
+      expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId })])
+    })
+  })
+
+  describe('a request body that is not JSON', () => {
+    // jsonValidator is attached to each route on its own, so a route taking a JSON body
+    // goes unchecked unless it has a row here
+    const routesTakingJson = [
+      ['POST', '/api/finances/transactions'],
+      ['PUT', '/api/finances/transactions/1'],
+      ['POST', '/api/finances/categories'],
+      ['PUT', '/api/finances/categories/1'],
+    ]
+
+    // Sent without the typed client, so that each route needs only a method and a path in the table
+    const sendBody = async (method: string, path: string, init: { headers?: Record<string, string>, body: string }) => {
+      const alice = await signedInUser('alice@example.com')
+      return app.request(path, {
+        method,
+        headers: { Origin: 'http://localhost', Cookie: `${SESSION_COOKIE}=${alice.session}`, ...init.headers },
+        body: init.body,
+      }, env)
+    }
+
+    it.each(routesTakingJson)('%s %s rejects a body that is not valid JSON', async (method, path) => {
+      const res = await sendBody(method, path, { headers: { 'Content-Type': 'application/json' }, body: '{"test":' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'The body must be valid JSON' })
+    })
+
+    it.each(routesTakingJson)('%s %s rejects a body sent without the JSON Content-Type', async (method, path) => {
+      // Without a Content-Type header, a string body is sent as text/plain
+      const res = await sendBody(method, path, { body: '{}' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'Content-Type must be application/json' })
     })
   })
 })
