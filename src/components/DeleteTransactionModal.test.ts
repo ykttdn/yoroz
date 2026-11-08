@@ -3,11 +3,13 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createQueryClient } from '../queryClient'
-import { pressEscape } from '../test/helpers'
+import { getButtonByText, pressEscape } from '../test/helpers'
 import type { Transaction } from '../types'
 import DeleteTransactionModal from './DeleteTransactionModal.vue'
 
-const transactionToDelete: Transaction = { id: 9, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'expense', amount: 9999, memo: 'テストメモ' }
+const transactionToDelete: Transaction = {
+  id: 9, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'expense', amount: 9999, memo: 'テストメモ',
+}
 
 const mountDeleteTransactionModal = () =>
   mount(DeleteTransactionModal, {
@@ -27,7 +29,7 @@ describe('DeleteTransactionModal', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }))
     const wrapper = mountDeleteTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === '削除')!.trigger('click')
+    await getButtonByText(wrapper, '削除').trigger('click')
     await flushPromises()
 
     const [url, init] = fetchSpy.mock.calls[0]
@@ -41,7 +43,7 @@ describe('DeleteTransactionModal', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }))
     const wrapper = mountDeleteTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === '削除')!.trigger('click')
+    await getButtonByText(wrapper, '削除').trigger('click')
     await flushPromises()
 
     expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
@@ -52,7 +54,7 @@ describe('DeleteTransactionModal', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
     const wrapper = mountDeleteTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === '削除')!.trigger('click')
+    await getButtonByText(wrapper, '削除').trigger('click')
     await flushPromises()
 
     expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
@@ -63,7 +65,7 @@ describe('DeleteTransactionModal', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
     const wrapper = mountDeleteTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === '削除')!.trigger('click')
+    await getButtonByText(wrapper, '削除').trigger('click')
     await flushPromises()
 
     expect(pressEscape(wrapper.get('dialog').element)).toEqual({ keydownPrevented: true, cancelPrevented: true })
@@ -73,7 +75,7 @@ describe('DeleteTransactionModal', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     const wrapper = mountDeleteTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+    await getButtonByText(wrapper, 'キャンセル').trigger('click')
 
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(false)

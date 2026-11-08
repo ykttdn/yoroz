@@ -3,14 +3,16 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createQueryClient } from '../queryClient'
-import { pressEscape } from '../test/helpers'
+import { getButtonByText, pressEscape } from '../test/helpers'
 import type { Transaction } from '../types'
 import TransactionModal from './TransactionModal.vue'
 
 const addedTransaction = { id: 1, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' }
 
 // 1 a.m. on October 1 in Japan time, while it is still September in UTC
-const transactionToEdit: Transaction = { id: 9, occurredAt: '2026-09-30T16:00:00.000Z', kind: 'expense', amount: 9999, memo: '編集前のテストメモ' }
+const transactionToEdit: Transaction = {
+  id: 9, occurredAt: '2026-09-30T16:00:00.000Z', kind: 'expense', amount: 9999, memo: '編集前のテストメモ',
+}
 
 const mountTransactionModal = (props: { transaction?: Transaction } = {}) =>
   mount(TransactionModal, {
@@ -62,7 +64,8 @@ describe('TransactionModal', () => {
       const [url, init] = fetchSpy.mock.calls[0]
       expect(String(url)).toContain('/api/finances/transactions')
       expect(init?.method).toBe('POST')
-      expect(JSON.parse(String(init?.body))).toEqual({ occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' })
+      expect(JSON.parse(String(init?.body)))
+        .toEqual({ occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' })
       expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(false)
       expect(wrapper.emitted('close')).toHaveLength(1)
     })
@@ -103,7 +106,8 @@ describe('TransactionModal', () => {
       const [url, init] = fetchSpy.mock.calls[0]
       expect(String(url)).toMatch(/\/api\/finances\/transactions\/9$/)
       expect(init?.method).toBe('PUT')
-      expect(JSON.parse(String(init?.body))).toEqual({ occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' })
+      expect(JSON.parse(String(init?.body)))
+        .toEqual({ occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: 'テストメモ' })
       expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(false)
       expect(wrapper.emitted('close')).toHaveLength(1)
     })
@@ -140,8 +144,8 @@ describe('TransactionModal', () => {
       await wrapper.get('form').trigger('submit')
       await flushPromises()
 
-      expect(wrapper.findAll('button').find(button => button.text() === '登録')!.attributes()).toHaveProperty('disabled')
-      expect(wrapper.findAll('button').find(button => button.text() === 'キャンセル')!.attributes()).toHaveProperty('disabled')
+      expect(getButtonByText(wrapper, '登録').attributes()).toHaveProperty('disabled')
+      expect(getButtonByText(wrapper, 'キャンセル').attributes()).toHaveProperty('disabled')
     })
 
     it('keeps Escape from closing the modal', async () => {
@@ -166,7 +170,7 @@ describe('TransactionModal', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     const wrapper = mountTransactionModal()
 
-    await wrapper.findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+    await getButtonByText(wrapper, 'キャンセル').trigger('click')
 
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(false)

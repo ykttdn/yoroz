@@ -90,7 +90,8 @@ const reload = () => location.reload()
         {{ currentUser.name || currentUser.email }}
       </li>
       <li>
-        <!-- menu styles only an item's direct child, so the button is that child and reaches the form outside via the form attribute -->
+        <!-- menu styles only an item's direct child, so the button is that child and reaches the form outside via the
+             form attribute -->
         <button
           type="submit"
           form="logout-form"

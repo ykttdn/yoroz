@@ -6,13 +6,18 @@ const TIME_ZONE = 'Asia/Tokyo'
 
 const yearMonthFormat = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit' })
 
-const dayFormat = new Intl.DateTimeFormat('ja-JP', { timeZone: TIME_ZONE, month: 'numeric', day: 'numeric', weekday: 'short' })
+const dayFormat = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE, month: 'numeric', day: 'numeric', weekday: 'short',
+})
 
 // h23 so that midnight is 00:00, never 24:00
-const timeFormat = new Intl.DateTimeFormat('ja-JP', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+const timeFormat = new Intl.DateTimeFormat('ja-JP', {
+  timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
 
 const dateTimeLocalFormat = new Intl.DateTimeFormat('en-US', {
-  timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 })
 
 const partsOf = (format: Intl.DateTimeFormat, date: Date) =>

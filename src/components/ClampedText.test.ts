@@ -33,7 +33,7 @@ describe('ClampedText', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
-  it('treats text 1px taller than its box as fitting, as rounding a fractional line height can make it so', async () => {
+  it('treats text 1px taller than its box as fitting, as rounding a fractional line height can cause it', async () => {
     stubHeights({ scrollHeight: 61, clientHeight: 60 })
 
     const wrapper = mount(ClampedText, { props: { text: 'テストメモ' } })

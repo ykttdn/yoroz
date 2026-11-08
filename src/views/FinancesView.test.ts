@@ -4,20 +4,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { createQueryClient } from '../queryClient'
+import { getButtonByText } from '../test/helpers'
 import type { Transaction } from '../types'
 import FinancesView from './FinancesView.vue'
 
-const expenseOnOctober1: Transaction = { id: 4, occurredAt: '2026-10-01T01:00:00.000Z', kind: 'expense', amount: 4444, memo: 'テストメモ4' }
-const expenseOnSeptember2: Transaction = { id: 3, occurredAt: '2026-09-02T00:30:00.000Z', kind: 'expense', amount: 3333, memo: 'テストメモ3' }
-const expenseOnSeptember1: Transaction = { id: 2, occurredAt: '2026-09-01T03:30:00.000Z', kind: 'expense', amount: 2222, memo: 'テストメモ2' }
-const incomeAtStartOfSeptember: Transaction = { id: 1, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: '' }
+const expenseOnOctober1: Transaction = {
+  id: 4, occurredAt: '2026-10-01T01:00:00.000Z', kind: 'expense', amount: 4444, memo: 'テストメモ4',
+}
+const expenseOnSeptember2: Transaction = {
+  id: 3, occurredAt: '2026-09-02T00:30:00.000Z', kind: 'expense', amount: 3333, memo: 'テストメモ3',
+}
+const expenseOnSeptember1: Transaction = {
+  id: 2, occurredAt: '2026-09-01T03:30:00.000Z', kind: 'expense', amount: 2222, memo: 'テストメモ2',
+}
+const incomeAtStartOfSeptember: Transaction = {
+  id: 1, occurredAt: '2026-08-31T15:00:00.000Z', kind: 'income', amount: 1111, memo: '',
+}
 
 const stubTransactions = (transactions: Transaction[]) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(transactions))
 
 const requestedUrls = (fetchSpy: ReturnType<typeof stubTransactions>) => fetchSpy.mock.calls.map(([url]) => String(url))
 
-const requestsAborted = (fetchSpy: ReturnType<typeof stubTransactions>) => fetchSpy.mock.calls.map(([, init]) => init?.signal?.aborted)
+const requestsAborted = (fetchSpy: ReturnType<typeof stubTransactions>) =>
+  fetchSpy.mock.calls.map(([, init]) => init?.signal?.aborted)
 
 // A bare router instead of the app's keeps the navigation guard and its request to /api/me out of these tests.
 // Mounting after the navigation settles lets the first render already see the query
@@ -251,7 +261,7 @@ describe('FinancesView', () => {
       .mockImplementationOnce(async () => Response.json([]))
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-    await wrapper.findAll('button').find(button => button.text() === '明細を追加')!.trigger('click')
+    await getButtonByText(wrapper, '明細を追加').trigger('click')
     await wrapper.get('#transaction-amount').setValue('2222')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
@@ -268,8 +278,8 @@ describe('FinancesView', () => {
     stubTransactions([expenseOnSeptember2, expenseOnSeptember1])
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-    await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
-    await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+    await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
+    await getButtonByText(wrapper.get('dialog'), 'キャンセル').trigger('click')
 
     expect(document.activeElement).toBe(wrapper.get('#transaction-2-menu-button').element)
   })
@@ -278,7 +288,7 @@ describe('FinancesView', () => {
     stubTransactions([expenseOnSeptember2, expenseOnSeptember1])
     const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-    await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+    await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
 
     expect(document.activeElement).toBe(wrapper.get('#transaction-2-menu-button').element)
   })
@@ -291,7 +301,7 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
       await wrapper.get('form').trigger('submit')
       await flushPromises()
 
@@ -307,10 +317,13 @@ describe('FinancesView', () => {
       vi.spyOn(globalThis, 'fetch')
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
         .mockImplementationOnce(async () => Response.json(expenseOnSeptember1))
-        .mockImplementationOnce(async () => Response.json([{ ...expenseOnSeptember1, occurredAt: '2026-09-02T01:00:00.000Z' }, expenseOnSeptember2]))
+        .mockImplementationOnce(
+          async () => Response.json([
+            { ...expenseOnSeptember1, occurredAt: '2026-09-02T01:00:00.000Z' }, expenseOnSeptember2,
+          ]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
       await wrapper.get('form').trigger('submit')
       await flushPromises()
 
@@ -325,11 +338,11 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
       await wrapper.get('form').trigger('submit')
       await flushPromises()
 
-      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
 
     it('fetches the month again when the transaction to edit was already deleted', async () => {
@@ -339,7 +352,7 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
       await wrapper.get('form').trigger('submit')
       await flushPromises()
 
@@ -350,19 +363,19 @@ describe('FinancesView', () => {
       ])
     })
 
-    it('focuses the add button once the edit modal is cancelled after the transaction turned out to be deleted', async () => {
+    it('focuses the add button once the edit modal is cancelled for a transaction found to be deleted', async () => {
       vi.spyOn(globalThis, 'fetch')
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
         .mockImplementationOnce(async () => new Response(null, { status: 404 }))
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '編集')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
       await wrapper.get('form').trigger('submit')
       await flushPromises()
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+      await getButtonByText(wrapper.get('dialog'), 'キャンセル').trigger('click')
 
-      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
   })
 
@@ -374,8 +387,8 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
+      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
       await flushPromises()
 
       expect(requestedUrls(fetchSpy)).toEqual([
@@ -393,11 +406,11 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
+      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
       await flushPromises()
 
-      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
 
     it('fetches the month again when the transaction to delete was already deleted', async () => {
@@ -407,8 +420,8 @@ describe('FinancesView', () => {
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
+      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
       await flushPromises()
 
       expect(requestedUrls(fetchSpy)).toEqual([
@@ -418,19 +431,19 @@ describe('FinancesView', () => {
       ])
     })
 
-    it('focuses the add button once the delete modal is cancelled after the transaction turned out to be deleted', async () => {
+    it('focuses the add button once the delete modal is cancelled for a transaction found to be deleted', async () => {
       vi.spyOn(globalThis, 'fetch')
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
         .mockImplementationOnce(async () => new Response(null, { status: 404 }))
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
-      await wrapper.get('#transaction-2-menu').findAll('button').find(button => button.text() === '削除')!.trigger('click')
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === '削除')!.trigger('click')
+      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
+      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
       await flushPromises()
-      await wrapper.get('dialog').findAll('button').find(button => button.text() === 'キャンセル')!.trigger('click')
+      await getButtonByText(wrapper.get('dialog'), 'キャンセル').trigger('click')
 
-      expect(document.activeElement).toBe(wrapper.findAll('button').find(button => button.text() === '明細を追加')!.element)
+      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
   })
 })

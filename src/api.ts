@@ -28,12 +28,13 @@ export const api = hc<Api>('/api', {
     // Without the checks below, a session that ended or changed elsewhere would go unnoticed until a reload, since the
     // Worker reports it only as a 401 or 409 on the next request
 
-    // Only a signed-in user's 401 means the session ended; before sign-in it is the guard's /api/me, which sends the user to log in itself
+    // Only a signed-in user's 401 means the session ended; before sign-in it is the guard's /api/me, which sends the
+    // user to log in itself
     if (res.status === 401 && currentUser.value) {
       sessionEnded.value = 'expired'
     }
-    // Checking the status alone would take a 409 an endpoint returns for a conflict of its own as another account signing
-    // in. Reading the response itself would use up its body, and the caller's res.json() would throw
+    // Checking the status alone would take a 409 an endpoint returns for a conflict of its own as another account
+    // signing in. Reading the response itself would use up its body, and the caller's res.json() would throw
     if (res.status === 409 && (await res.clone().json().catch(() => null))?.error === ANOTHER_USER_ERROR) {
       sessionEnded.value = 'switched'
     }

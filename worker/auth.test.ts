@@ -18,7 +18,9 @@ const googleUser = {
 
 // Answers the requests googleAuth sends to Google on a callback.
 // By default the allowed googleUser signs in; `token` and `user` override parts of the responses to make it fail.
-const stubGoogle = ({ token = {}, user = {} }: { token?: Record<string, unknown>, user?: Record<string, unknown> } = {}) =>
+const stubGoogle = (
+  { token = {}, user = {} }: { token?: Record<string, unknown>, user?: Record<string, unknown> } = {},
+) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = input instanceof Request ? input.url : input.toString()
     // Called first, to exchange the `code` in the callback for a token
@@ -34,7 +36,8 @@ const stubGoogle = ({ token = {}, user = {} }: { token?: Record<string, unknown>
 
 // Google redirects back with a `code`, which googleAuth exchanges for a token, and the `state` googleAuth sent,
 // which proves the redirect belongs to a sign-in this browser started.
-// googleAuth only treats a request with a `code` as a callback, and rejects it unless its state matches the cookie set before redirecting to Google
+// googleAuth only treats a request with a `code` as a callback, and rejects it unless its state matches the cookie set
+// before redirecting to Google
 const callback = ({ session }: { session?: string } = {}) => {
   const cookie = session === undefined ? 'state=state' : `state=state; ${SESSION_COOKIE}=${session}`
   return app.request('/auth/google?code=code&state=state', { headers: { Cookie: cookie } }, env)
@@ -227,7 +230,10 @@ describe('/auth', () => {
     it('drops the session and redirects to the login page', async () => {
       const res = await app.request(
         '/auth/logout',
-        { method: 'POST', headers: { 'Origin': 'http://localhost', 'Content-Type': 'application/x-www-form-urlencoded' } },
+        {
+          method: 'POST',
+          headers: { 'Origin': 'http://localhost', 'Content-Type': 'application/x-www-form-urlencoded' },
+        },
         env,
       )
 
@@ -239,7 +245,10 @@ describe('/auth', () => {
     it('keeps the session when another site posts a form to it', async () => {
       const res = await app.request(
         '/auth/logout',
-        { method: 'POST', headers: { 'Origin': 'https://evil.example.com', 'Content-Type': 'application/x-www-form-urlencoded' } },
+        {
+          method: 'POST',
+          headers: { 'Origin': 'https://evil.example.com', 'Content-Type': 'application/x-www-form-urlencoded' },
+        },
         env,
       )
 

@@ -23,7 +23,8 @@ export const idParamValidator = validator('param', (value, c) => {
   return { id }
 })
 
-// Otherwise zValidator validates {} when the Content-Type isn't JSON, and throws a plain-text 400 when the body isn't valid JSON.
+// Otherwise zValidator validates {} when the Content-Type isn't JSON, and throws a plain-text 400 when the body isn't
+// valid JSON.
 export const jsonValidator = createMiddleware(async (c, next) => {
   if (!/^application\/json(;|$)/i.test(c.req.header('Content-Type') ?? '')) {
     return c.json({ error: 'Content-Type must be application/json' }, 400)
@@ -48,8 +49,12 @@ export const transactionBodyValidator = zValidator('json',
       .refine(isInYearRange, { error: OCCURRED_AT_YEAR_ERROR })
       .transform(value => new Date(value)),
     kind: z.enum(transactions.kind.enumValues, { error: KIND_ERROR }),
-    amount: z.int({ error: AMOUNT_ERROR }).positive({ error: AMOUNT_ERROR }).max(MAX_AMOUNT, { error: AMOUNT_ERROR }),
-    memo: z.string({ error: 'memo must be a string' }).max(MAX_MEMO_LENGTH, { error: `memo must be at most ${MAX_MEMO_LENGTH} characters` }).default(''),
+    amount: z.int({ error: AMOUNT_ERROR })
+      .positive({ error: AMOUNT_ERROR })
+      .max(MAX_AMOUNT, { error: AMOUNT_ERROR }),
+    memo: z.string({ error: 'memo must be a string' })
+      .max(MAX_MEMO_LENGTH, { error: `memo must be at most ${MAX_MEMO_LENGTH} characters` })
+      .default(''),
   },
   { error: 'The body must be a JSON object' }),
   (result, c) => {

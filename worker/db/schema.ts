@@ -6,8 +6,13 @@ export const users = sqliteTable('users', {
   googleSub: text('google_sub').notNull().unique(),
   email: text().notNull(),
   name: text().notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()).$onUpdate(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .$default(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .$default(() => new Date())
+    .$onUpdate(() => new Date()),
 })
 
 export const categories = sqliteTable('categories', {
@@ -29,8 +34,13 @@ export const transactions = sqliteTable('transactions', {
   amount: integer().notNull(),
   categoryId: integer('category_id'),
   memo: text().notNull().default(''),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$default(() => new Date()).$onUpdate(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .$default(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .$default(() => new Date())
+    .$onUpdate(() => new Date()),
 }, table => [
   foreignKey({
     columns: [table.userId, table.categoryId],

@@ -26,7 +26,8 @@ export default defineConfig([
   pluginVue.configs['flat/recommended-error'],
   {
     files: ['src/**/*.vue'],
-    // Cast because the plugin types its config with typescript-eslint's types, which defineConfig's types reject; the config itself is valid
+    // Cast because the plugin types its config with typescript-eslint's types, which defineConfig's types reject; the
+    // config itself is valid
     extends: [tailwindcss.configs.recommended as Linter.Config],
     settings: { tailwindcss: { cssConfigPath: tailwindCssPath } },
   },
@@ -46,6 +47,18 @@ export default defineConfig([
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,vue}'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@stylistic/max-len': ['error', { code: 120 }],
+      '@stylistic/object-curly-newline': ['error', { consistent: true }],
+      '@stylistic/function-call-argument-newline': ['error', 'consistent'],
+    },
+  },
+  {
+    // @stylistic/max-len measures template lines as plain text and cannot leave out HTML attribute values, so a long
+    // Tailwind class list would have to be split across lines. vue/max-len checks .vue files instead
+    files: ['**/*.vue'],
+    rules: {
+      '@stylistic/max-len': 'off',
+      'vue/max-len': ['error', { code: 120, ignoreHTMLAttributeValues: true }],
     },
   },
 ])

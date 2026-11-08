@@ -24,8 +24,8 @@ const { mutate, isPending, isError, error } = useMutation({
       throw new ResponseError(`/api/finances/transactions failed: ${res.status}`, res.status)
     }
   },
-  // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the fetch
-  // then removes, which would leave focus on the body
+  // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the
+  // fetch then removes, which would leave focus on the body
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
