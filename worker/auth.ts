@@ -33,7 +33,12 @@ const auth = new Hono<AppEnv>()
     })(c, next),
     async (c) => {
       const googleUser = c.get('user-google')
-      if (!googleUser?.id || !googleUser.email || !googleUser.verified_email || !isAllowedEmail(c.env.ALLOWED_EMAILS, googleUser.email)) {
+      if (
+        !googleUser?.id
+        || !googleUser.email
+        || !googleUser.verified_email
+        || !isAllowedEmail(c.env.ALLOWED_EMAILS, googleUser.email)
+      ) {
         // Otherwise an existing session survives, and the SPA sends the user home without showing the error
         deleteCookie(c, SESSION_COOKIE, { path: '/', secure: true })
         return c.redirect('/login?error=forbidden')
@@ -52,7 +57,9 @@ const auth = new Hono<AppEnv>()
         c.env.AUTH_SECRET,
         'HS256',
       )
-      setCookie(c, SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: SESSION_MAX_AGE })
+      setCookie(c, SESSION_COOKIE, token, {
+        httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: SESSION_MAX_AGE,
+      })
       return c.redirect('/')
     },
   )

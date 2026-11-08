@@ -11,7 +11,9 @@ const transactionColumns = {
   memo: transactions.memo,
 }
 
-export const listTransactions = (db: DrizzleD1Database, userId: number, { start, end }: { start: number, end: number }) =>
+export const listTransactions = (
+  db: DrizzleD1Database, userId: number, { start, end }: { start: number, end: number },
+) =>
   db.select(transactionColumns)
     .from(transactions)
     .where(and(
@@ -31,7 +33,9 @@ export const createTransaction = async (db: DrizzleD1Database, userId: number, v
   return transaction
 }
 
-export const updateTransaction = async (db: DrizzleD1Database, userId: number, id: number, values: TransactionValues) => {
+export const updateTransaction = async (
+  db: DrizzleD1Database, userId: number, id: number, values: TransactionValues,
+) => {
   const updated = await db
     .update(transactions)
     .set(values)
@@ -95,4 +99,5 @@ export const deleteCategory = async (db: DrizzleD1Database, userId: number, id: 
 
 export const isDuplicateCategoryName = (error: unknown) =>
   error instanceof DrizzleQueryError
-  && error.cause?.message.includes('UNIQUE constraint failed: categories.user_id, categories.kind, categories.name') === true
+  && error.cause !== undefined
+  && error.cause.message.includes('UNIQUE constraint failed: categories.user_id, categories.kind, categories.name')

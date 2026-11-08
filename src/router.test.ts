@@ -6,7 +6,8 @@ const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 // A redirect runs the guard again, and a Response body can only be read once, so each call gets a new one
 const stubSignedIn = () => vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(alice))
 const stubSignedOut = () =>
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ error: 'Unauthorized' }, { status: 401 }))
+  vi.spyOn(globalThis, 'fetch')
+    .mockImplementation(async () => Response.json({ error: 'Unauthorized' }, { status: 401 }))
 
 describe('navigation guard', () => {
   let router: Router

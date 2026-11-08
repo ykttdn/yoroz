@@ -7,8 +7,14 @@ import auth from './auth'
 import { logWithTime } from './logWithTime'
 import type { AppEnv } from './types'
 
-// Makes the method bold and colors the path cyan
-const requestLogger = logger(str => logWithTime(str.replace(/^(<--|-->) (\S+) (\S+)/, '$1 \x1b[1m$2\x1b[0m \x1b[36m$3\x1b[0m')))
+const BOLD = '\x1b[1m'
+const CYAN = '\x1b[36m'
+const RESET = '\x1b[0m'
+
+const highlightMethodAndPath = (line: string) =>
+  line.replace(/^(<--|-->) (\S+) (\S+)/, `$1 ${BOLD}$2${RESET} ${CYAN}$3${RESET}`)
+
+const requestLogger = logger(line => logWithTime(highlightMethodAndPath(line)))
 
 const app = new Hono<AppEnv>()
   .use('*', import.meta.env.MODE === 'development' ? requestLogger : (_, next) => next())

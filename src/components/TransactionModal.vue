@@ -26,7 +26,9 @@ const queryClient = useQueryClient()
 
 const { mutate, isPending, isError, error } = useMutation({
   mutationFn: async () => {
-    const json = { occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value }
+    const json = {
+      occurredAt: fromDateTimeLocal(occurredAt.value), kind: kind.value, amount: Number(amount.value), memo: memo.value,
+    }
     const res = transaction
       ? await api.finances.transactions[':id'].$put({ param: { id: String(transaction.id) }, json })
       : await api.finances.transactions.$post({ json })
@@ -34,8 +36,8 @@ const { mutate, isPending, isError, error } = useMutation({
       throw new ResponseError(`/api/finances/transactions failed: ${res.status}`, res.status)
     }
   },
-  // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the fetch
-  // then replaces or removes, which would leave focus on the body
+  // Waits for the list to be fetched again before closing, so that FinancesView doesn't focus a menu button that the
+  // fetch then replaces or removes, which would leave focus on the body
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
@@ -70,7 +72,8 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         {{ transaction ? '明細を編集' : '明細を追加' }}
       </h2>
       <div class="fieldset">
-        <!-- The legend and the buttons aren't items of the outer grid, so they get none of its gap and the padding adds the same space -->
+        <!-- The legend and the buttons aren't items of the outer grid, so they get none of its gap and the padding
+             adds the same space -->
         <fieldset class="pt-1.5">
           <legend class="fieldset-legend">
             収支

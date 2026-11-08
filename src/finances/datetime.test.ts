@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentYearMonth, formatDay, formatTime, formatYearMonth, fromDateTimeLocal, isListableYearMonth, shiftYearMonth, toDateTimeLocal } from './datetime'
+import {
+  currentYearMonth, formatDay, formatTime, formatYearMonth, fromDateTimeLocal, isListableYearMonth, shiftYearMonth,
+  toDateTimeLocal,
+} from './datetime'
 
 describe('isListableYearMonth', () => {
   it.each([

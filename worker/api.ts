@@ -14,10 +14,10 @@ const api = new Hono<AppEnv>()
     if (!payload || typeof payload.email !== 'string' || !isAllowedEmail(c.env.ALLOWED_EMAILS, payload.email)) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
-    // Without this, a tab left on one account would act as another that signed in elsewhere and save entries to its data.
-    // A request without the header is let through, since refusing it would fail the SPA's first /api/me, which goes out
-    // before it knows who is signed in. The user still comes from the signed cookie: taking it from this header would let
-    // a forged one act as anyone
+    // Without this, a tab left on one account would act as another that signed in elsewhere and save entries to its
+    // data. A request without the header is let through, since refusing it would fail the SPA's first /api/me, which
+    // goes out before it knows who is signed in. The user still comes from the signed cookie: taking it from this
+    // header would let a forged one act as anyone
     const expectedUser = c.req.header(EXPECTED_USER_HEADER)
     if (expectedUser !== undefined && expectedUser !== payload.sub) {
       return c.json({ error: ANOTHER_USER_ERROR }, 409)

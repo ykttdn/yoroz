@@ -8,7 +8,9 @@ import { api } from '../api'
 import ClampedText from '../components/ClampedText.vue'
 import DeleteTransactionModal from '../components/DeleteTransactionModal.vue'
 import TransactionModal from '../components/TransactionModal.vue'
-import { currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth } from '../finances/datetime'
+import {
+  currentYearMonth, formatDay, formatTime, formatYearMonth, isListableYearMonth, shiftYearMonth,
+} from '../finances/datetime'
 import type { Transaction } from '../types'
 
 const route = useRoute()
@@ -21,13 +23,15 @@ const addButton = useTemplateRef('addButton')
 
 const menuButtonId = (transaction: Transaction) => `transaction-${transaction.id}-menu-button`
 
-// showModal closes the menu, so the dialog could not give focus back to the menu item it was opened from and would leave
-// it on the body. Focusing the menu's button before showModal makes the dialog give focus back to that button instead
+// showModal closes the menu, so the dialog could not give focus back to the menu item it was opened from and would
+// leave it on the body. Focusing the menu's button before showModal makes the dialog give focus back to that button
+// instead
 const focusMenuButton = (transaction: Transaction) => document.getElementById(menuButtonId(transaction))?.focus()
 
-// Fetching the month again while a modal is open replaces the transaction's row when its day changed and removes it when
-// it left the month or was deleted, so the menu button the dialog gave focus back to may no longer be in the page, leaving
-// focus on the body. The row's current menu button, or the add button when the row is gone, takes focus instead
+// Fetching the month again while a modal is open replaces the transaction's row when its day changed and removes it
+// when it left the month or was deleted, so the menu button the dialog gave focus back to may no longer be in the
+// page, leaving focus on the body. The row's current menu button, or the add button when the row is gone, takes focus
+// instead
 const closeTransactionMenuModal = (transaction: Transaction) => {
   transactionToEdit.value = undefined
   transactionToDelete.value = undefined
@@ -90,6 +94,9 @@ const transactionsByDay = computed(() =>
 // The sign tells income from expenses, so the amount doesn't rely on its color alone
 const amountFormat = new Intl.NumberFormat('ja-JP', { signDisplay: 'always' })
 const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind === 'expense' ? -amount : amount)
+
+const menuButtonLabel = (transaction: Transaction) =>
+  `${formatDay(transaction.occurredAt)} ${formatTime(transaction.occurredAt)} ${formatAmount(transaction)}円の操作`
 </script>
 
 <template>
@@ -230,13 +237,14 @@ const formatAmount = ({ kind, amount }: Transaction) => amountFormat.format(kind
                 :id="menuButtonId(transaction)"
                 type="button"
                 class="btn btn-square btn-ghost btn-sm"
-                :aria-label="`${formatDay(transaction.occurredAt)} ${formatTime(transaction.occurredAt)} ${formatAmount(transaction)}円の操作`"
+                :aria-label="menuButtonLabel(transaction)"
                 :popovertarget="`transaction-${transaction.id}-menu`"
                 :style="`anchor-name: --transaction-${transaction.id}-menu`"
               >
                 ⋮
               </button>
-              <!-- Without the flip, the menu of a row near the bottom of the screen opens below the screen, out of reach -->
+              <!-- Without the flip, the menu of a row near the bottom of the screen opens below the screen, out of
+                   reach -->
               <ul
                 :id="`transaction-${transaction.id}-menu`"
                 popover

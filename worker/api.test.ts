@@ -54,13 +54,19 @@ describe('/api', () => {
 
   describe('with the user the SPA expects', () => {
     it('accepts a request from the expected user', async () => {
-      const res = await client({ session: await signedSession() }).api.me.$get(undefined, { headers: { [EXPECTED_USER_HEADER]: '1' } })
+      const res = await client({ session: await signedSession() }).api.me.$get(
+        undefined,
+        { headers: { [EXPECTED_USER_HEADER]: '1' } },
+      )
 
       expect(res.status).toBe(200)
     })
 
     it('rejects a request once another user has signed in', async () => {
-      const res = await client({ session: await signedSession({ sub: '2' }) }).api.me.$get(undefined, { headers: { [EXPECTED_USER_HEADER]: '1' } })
+      const res = await client({ session: await signedSession({ sub: '2' }) }).api.me.$get(
+        undefined,
+        { headers: { [EXPECTED_USER_HEADER]: '1' } },
+      )
 
       expect(res.status).toBe(409)
       expect(await res.json()).toEqual({ error: ANOTHER_USER_ERROR })

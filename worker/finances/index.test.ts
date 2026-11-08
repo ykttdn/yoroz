@@ -20,7 +20,9 @@ const signedInUser = async (email: string) => {
 
 const transactionsApi = ({ session }: { session: string }) => client({ session }).api.finances.transactions
 
-const insertTransaction = async (userId: number, occurredAt: string, values: Partial<typeof transactions.$inferInsert> = {}) => {
+const insertTransaction = async (
+  userId: number, occurredAt: string, values: Partial<typeof transactions.$inferInsert> = {},
+) => {
   const [transaction] = await db
     .insert(transactions)
     .values({ userId, occurredAt: new Date(occurredAt), kind: 'expense', amount: 1000, ...values })
@@ -55,7 +57,9 @@ describe('/api/finances', () => {
   describe('GET /api/finances/transactions', () => {
     it('returns a transaction with its time in UTC', async () => {
       const alice = await signedInUser('alice@example.com')
-      const transactionId = await insertTransaction(alice.id, '2026-09-01T01:00:00.000Z', { kind: 'income', amount: 300000, memo: 'Salary' })
+      const transactionId = await insertTransaction(
+        alice.id, '2026-09-01T01:00:00.000Z', { kind: 'income', amount: 300000, memo: 'Salary' },
+      )
 
       const res = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
 
@@ -189,10 +193,22 @@ describe('/api/finances', () => {
     it.each([
       ['null as the body', null, 'The body must be a JSON object'],
       ['an array as the body', [], 'The body must be a JSON object'],
-      ['a timestamp before the year 2000 in Japan time', { ...body, occurredAt: '1999-12-31T14:59:00.000Z' }, 'occurredAt must be in the years 2000 to 2099 in Japan time'],
-      ['a timestamp after the year 2099 in Japan time', { ...body, occurredAt: '2099-12-31T15:00:00.000Z' }, 'occurredAt must be in the years 2000 to 2099 in Japan time'],
-      ['a timestamp with an offset', { ...body, occurredAt: '2026-09-27T10:30:00.000+09:00' }, 'occurredAt must be a UTC timestamp on the minute'],
-      ['a timestamp with seconds', { ...body, occurredAt: '2026-09-27T01:30:15.000Z' }, 'occurredAt must be a UTC timestamp on the minute'],
+      [
+        'a timestamp before the year 2000 in Japan time', { ...body, occurredAt: '1999-12-31T14:59:00.000Z' },
+        'occurredAt must be in the years 2000 to 2099 in Japan time',
+      ],
+      [
+        'a timestamp after the year 2099 in Japan time', { ...body, occurredAt: '2099-12-31T15:00:00.000Z' },
+        'occurredAt must be in the years 2000 to 2099 in Japan time',
+      ],
+      [
+        'a timestamp with an offset', { ...body, occurredAt: '2026-09-27T10:30:00.000+09:00' },
+        'occurredAt must be a UTC timestamp on the minute',
+      ],
+      [
+        'a timestamp with seconds', { ...body, occurredAt: '2026-09-27T01:30:15.000Z' },
+        'occurredAt must be a UTC timestamp on the minute',
+      ],
       ['an unknown kind', { ...body, kind: 'transfer' }, 'kind must be expense or income'],
       ['a zero amount', { ...body, amount: 0 }, 'amount must be an integer from 1 to 1000000'],
       ['a fractional amount', { ...body, amount: 1.5 }, 'amount must be an integer from 1 to 1000000'],
@@ -231,7 +247,9 @@ describe('/api/finances', () => {
     it('keeps createdAt and renews updatedAt', async () => {
       const alice = await signedInUser('alice@example.com')
       const insertedAt = new Date('2026-09-27T01:30:00.000Z')
-      const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z', { createdAt: insertedAt, updatedAt: insertedAt })
+      const transactionId = await insertTransaction(
+        alice.id, '2026-09-27T01:30:00.000Z', { createdAt: insertedAt, updatedAt: insertedAt },
+      )
 
       const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: body })
 
@@ -296,7 +314,10 @@ describe('/api/finances', () => {
       const transactionId = await insertTransaction(alice.id, '2026-09-27T01:30:00.000Z')
       const before = await transactionsApi(alice).$get({ query: { month: '2026-09' } })
 
-      const res = await transactionsApi(alice)[':id'].$put({ param: { id: String(transactionId) }, json: { ...body, amount: 0 } })
+      const res = await transactionsApi(alice)[':id'].$put({
+        param: { id: String(transactionId) },
+        json: { ...body, amount: 0 },
+      })
 
       expect(res.status).toBe(400)
       expect(await res.json()).toEqual({ error: 'amount must be an integer from 1 to 1000000' })
@@ -502,7 +523,10 @@ describe('/api/finances', () => {
       const alice = await signedInUser('alice@example.com')
       const categoryId = await insertCategory(alice.id, 'Test category A')
 
-      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { name: 'テストカテゴリ'.normalize('NFD') } })
+      const res = await categoriesApi(alice)[':id'].$put({
+        param: { id: String(categoryId) },
+        json: { name: 'テストカテゴリ'.normalize('NFD') },
+      })
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual(expect.objectContaining({ id: categoryId, name: 'テストカテゴリ' }))
@@ -512,8 +536,11 @@ describe('/api/finances', () => {
       const alice = await signedInUser('alice@example.com')
       const categoryId = await insertCategory(alice.id, 'Test category A', 'income')
 
-      // @ts-expect-error The type rules out a kind, but the server still has to leave the category's kind as it is
-      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { ...body, kind: 'expense' } })
+      const res = await categoriesApi(alice)[':id'].$put({
+        param: { id: String(categoryId) },
+        // @ts-expect-error The type rules out a kind, but the server still has to leave the category's kind as it is
+        json: { ...body, kind: 'expense' },
+      })
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ id: categoryId, name: body.name, kind: 'income' })
@@ -523,7 +550,10 @@ describe('/api/finances', () => {
       const alice = await signedInUser('alice@example.com')
       const categoryId = await insertCategory(alice.id, 'Test category A')
 
-      const res = await categoriesApi(alice)[':id'].$put({ param: { id: String(categoryId) }, json: { name: 'Test category A' } })
+      const res = await categoriesApi(alice)[':id'].$put({
+        param: { id: String(categoryId) },
+        json: { name: 'Test category A' },
+      })
 
       expect(res.status).toBe(200)
     })
