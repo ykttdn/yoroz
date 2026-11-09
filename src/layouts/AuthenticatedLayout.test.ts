@@ -9,7 +9,7 @@ const alice = { id: 1, email: 'alice@example.com', name: 'Alice' }
 
 // Attached to the document, since showModal() throws for a dialog that is not connected
 const mountLayout = () =>
-  mount(AuthenticatedLayout, { attachTo: document.body, global: { stubs: { RouterView: true } } })
+  mount(AuthenticatedLayout, { attachTo: document.body, global: { stubs: { RouterLink: true, RouterView: true } } })
 
 // Clearing the body removes only the DOM, so without this each earlier test's layout would stay mounted and keep its
 // visibilitychange listener on the document, and a later test's fetch count would no longer be its own
