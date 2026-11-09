@@ -103,7 +103,12 @@ const menuButtonLabel = (transaction: Transaction) =>
   <div class="mx-auto flex max-w-3xl flex-col gap-4 p-4">
     <div class="flex items-center justify-between gap-4">
       <h1 class="text-xl font-bold">
-        家計簿
+        <RouterLink
+          :to="{ query: {} }"
+          class="transition-opacity hover:opacity-70"
+        >
+          家計簿
+        </RouterLink>
       </h1>
       <button
         ref="addButton"

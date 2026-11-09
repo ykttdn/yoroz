@@ -58,7 +58,14 @@ const reload = () => location.reload()
     v-if="currentUser"
     class="navbar bg-base-200 px-4"
   >
-    <span class="flex-1 font-bold">yoroz</span>
+    <div class="flex-1">
+      <RouterLink
+        :to="{ name: 'home' }"
+        class="font-bold transition-opacity hover:opacity-70"
+      >
+        yoroz
+      </RouterLink>
+    </div>
     <button
       type="button"
       class="btn btn-circle btn-ghost [anchor-name:--user-menu]"
