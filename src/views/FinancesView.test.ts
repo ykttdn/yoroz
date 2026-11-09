@@ -120,7 +120,7 @@ describe('FinancesView', () => {
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(wrapper.find('h2').exists()).toBe(false)
     expect(wrapper.get('[role="alert"]').text()).toBe('表示できない月が指定されています。2000年1月から2099年12月までの月を指定してください。')
-    expect(wrapper.get('a').attributes('href')).toBe('/finances')
+    expect(wrapper.get('[role="alert"] + a').attributes('href')).toBe('/finances')
   })
 
   it('links to the previous and next months', async () => {
