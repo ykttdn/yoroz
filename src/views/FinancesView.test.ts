@@ -253,6 +253,15 @@ describe('FinancesView', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('明細を読み込めませんでした。')
   })
 
+  it('opens the category modal from the category button', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json([]))
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    await getButtonByText(wrapper, 'カテゴリ').trigger('click')
+
+    expect(wrapper.get('#categories-modal-title').text()).toBe('カテゴリ')
+  })
+
   it('fetches the month again once a transaction is added from the modal', async () => {
     // The responses carry no transactions, since only the requests and the closing of the modal are checked
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
