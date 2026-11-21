@@ -49,7 +49,7 @@
     "eslint-plugin-vue": "10.12.1",
     "happy-dom": "21.0.4",
     "jiti": "2.7.0",
-    "tailwindcss": "4.3.3",
+    "tailwindcss": "4.3.5",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vite": "8.3.8",
