@@ -2,6 +2,7 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { MAX_MEMO_LENGTH } from '../../worker/finances/limits'
 import { createQueryClient } from '../queryClient'
 import { getButtonByText, pressEscape } from '../test/helpers'
 import type { Transaction } from '../types'
@@ -133,6 +134,15 @@ describe('TransactionModal', () => {
       expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
       expect(wrapper.get('[role="alert"]').text()).toBe('この明細はすでに削除されています。')
     })
+  })
+
+  it('marks a memo longer than the limit invalid', async () => {
+    const wrapper = mountTransactionModal()
+
+    await wrapper.get('#transaction-memo').setValue('x'.repeat(MAX_MEMO_LENGTH + 1))
+
+    expect(wrapper.get<HTMLTextAreaElement>('#transaction-memo').element.validationMessage)
+      .toBe(`${MAX_MEMO_LENGTH}文字以内で入力してください`)
   })
 
   it('focuses the submit button when saving fails after focus fell to the body', async () => {

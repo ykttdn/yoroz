@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { until } from '@vueuse/core'
-import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import { nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 import { MAX_AMOUNT, MAX_MEMO_LENGTH } from '../../worker/finances/limits'
 import { api, isNotFound, ResponseError } from '../api'
@@ -22,6 +22,14 @@ const kind = ref<Transaction['kind']>(transaction?.kind ?? 'expense')
 const amount = ref<number | ''>(transaction?.amount ?? '')
 const occurredAt = ref(toDateTimeLocal(transaction ? new Date(transaction.occurredAt) : new Date()))
 const memo = ref(transaction?.memo ?? '')
+
+const memoTextarea = useTemplateRef('memoTextarea')
+
+watch(memo, () => {
+  memoTextarea.value?.setCustomValidity(
+    memo.value.length > MAX_MEMO_LENGTH ? `${MAX_MEMO_LENGTH}文字以内で入力してください` : '',
+  )
+})
 
 const submitButton = useTemplateRef('submitButton')
 
@@ -151,8 +159,8 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         >メモ</label>
         <textarea
           id="transaction-memo"
+          ref="memoTextarea"
           v-model="memo"
-          :maxlength="MAX_MEMO_LENGTH"
           class="textarea w-full"
         />
       </div>
