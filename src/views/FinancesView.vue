@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 
 import { MAX_YEAR, MIN_YEAR } from '../../worker/finances/datetime'
 import { api } from '../api'
+import CategoriesModal from '../components/CategoriesModal.vue'
 import ClampedText from '../components/ClampedText.vue'
 import DeleteTransactionModal from '../components/DeleteTransactionModal.vue'
 import TransactionModal from '../components/TransactionModal.vue'
@@ -15,6 +16,7 @@ import type { Transaction } from '../types'
 
 const route = useRoute()
 
+const isManagingCategories = ref(false)
 const isAddingTransaction = ref(false)
 const transactionToEdit = ref<Transaction>()
 const transactionToDelete = ref<Transaction>()
@@ -110,15 +112,28 @@ const menuButtonLabel = (transaction: Transaction) =>
           家計簿
         </RouterLink>
       </h1>
-      <button
-        ref="addButton"
-        type="button"
-        class="btn btn-primary"
-        @click="isAddingTransaction = true"
-      >
-        明細を追加
-      </button>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="btn"
+          @click="isManagingCategories = true"
+        >
+          カテゴリ
+        </button>
+        <button
+          ref="addButton"
+          type="button"
+          class="btn btn-primary"
+          @click="isAddingTransaction = true"
+        >
+          明細を追加
+        </button>
+      </div>
     </div>
+    <CategoriesModal
+      v-if="isManagingCategories"
+      @close="isManagingCategories = false"
+    />
     <TransactionModal
       v-if="isAddingTransaction"
       @close="isAddingTransaction = false"

@@ -45,11 +45,7 @@ export const updateTransaction = async (
 }
 
 export const deleteTransaction = async (db: DrizzleD1Database, userId: number, id: number) => {
-  const { meta } = await db
-    .delete(transactions)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
-    .run()
-  return meta.changes > 0
+  await db.delete(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
 }
 
 const categoryColumns = {
@@ -86,15 +82,13 @@ export const renameCategory = async (db: DrizzleD1Database, userId: number, id: 
 }
 
 export const deleteCategory = async (db: DrizzleD1Database, userId: number, id: number) => {
-  const [, deleted] = await db.batch([
+  await db.batch([
     db.update(transactions)
       .set({ categoryId: null })
       .where(and(eq(transactions.userId, userId), eq(transactions.categoryId, id))),
     db.delete(categories)
-      .where(and(eq(categories.id, id), eq(categories.userId, userId)))
-      .returning({ id: categories.id }),
+      .where(and(eq(categories.id, id), eq(categories.userId, userId))),
   ])
-  return deleted.length > 0
 }
 
 export const isDuplicateCategoryName = (error: unknown) =>

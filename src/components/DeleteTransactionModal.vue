@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onMounted, useTemplateRef } from 'vue'
+import { until } from '@vueuse/core'
+import { nextTick, onMounted, useTemplateRef } from 'vue'
 
-import { api, isNotFound, ResponseError } from '../api'
+import { api, ResponseError } from '../api'
 import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
 import { formatDay, formatTime } from '../finances/datetime'
 import type { Transaction } from '../types'
@@ -15,9 +16,11 @@ const dialog = useTemplateRef('dialog')
 
 onMounted(() => dialog.value?.showModal())
 
+const cancelButton = useTemplateRef('cancelButton')
+
 const queryClient = useQueryClient()
 
-const { mutate, isPending, isError, error } = useMutation({
+const { mutate, isPending, isError } = useMutation({
   mutationFn: async () => {
     const res = await api.finances.transactions[':id'].$delete({ param: { id: String(transaction.id) } })
     if (!res.ok) {
@@ -30,13 +33,18 @@ const { mutate, isPending, isError, error } = useMutation({
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
   },
-  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
-  onError: (mutationError) => {
-    if (isNotFound(mutationError)) {
-      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
-    }
+  onError: () => {
+    focusCancelButtonOnceSettled()
   },
 })
+
+// Disabling the delete button while pending leaves focus on the body. onError runs before isPending turns false,
+// while the cancel button is still disabled, and the button takes focus only once the render that follows enables it
+const focusCancelButtonOnceSettled = async () => {
+  await until(isPending).toBe(false)
+  await nextTick()
+  cancelButton.value?.focus()
+}
 
 const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
 
@@ -81,10 +89,11 @@ const amountFormat = new Intl.NumberFormat('ja-JP')
         role="alert"
         class="alert alert-soft alert-error"
       >
-        {{ isNotFound(error) ? 'この明細はすでに削除されています。' : '削除できませんでした。' }}
+        削除できませんでした。
       </p>
       <div class="modal-action justify-between">
         <button
+          ref="cancelButton"
           type="button"
           class="btn btn-ghost"
           :disabled="isPending"

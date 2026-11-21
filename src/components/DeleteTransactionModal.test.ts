@@ -39,7 +39,7 @@ describe('DeleteTransactionModal', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
-  it('stays open with an error when the transaction cannot be deleted', async () => {
+  it('stays open with an error and focuses the cancel button when the transaction cannot be deleted', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }))
     const wrapper = mountDeleteTransactionModal()
 
@@ -48,17 +48,7 @@ describe('DeleteTransactionModal', () => {
 
     expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
     expect(wrapper.get('[role="alert"]').text()).toBe('削除できませんでした。')
-  })
-
-  it('stays open saying so when the transaction was already deleted', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
-    const wrapper = mountDeleteTransactionModal()
-
-    await getButtonByText(wrapper, '削除').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.get<HTMLDialogElement>('dialog').element.open).toBe(true)
-    expect(wrapper.get('[role="alert"]').text()).toBe('この明細はすでに削除されています。')
+    expect(document.activeElement).toBe(getButtonByText(wrapper, 'キャンセル').element)
   })
 
   it('keeps Escape from closing the modal while the request is pending', async () => {

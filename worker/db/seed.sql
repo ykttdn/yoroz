@@ -1,6 +1,16 @@
--- Replaces the transactions of the first user, so sign in once before applying it.
+-- Replaces the first user's data, so sign in once before applying it.
 -- Each occurred_at counts from the start of the current month in Japan time, then goes back to UTC with '-9 hours'.
 DELETE FROM transactions WHERE user_id = (SELECT min(id) FROM users);
+-- After the transactions, which would otherwise still refer to the categories
+DELETE FROM categories WHERE user_id = (SELECT min(id) FROM users);
+
+INSERT INTO categories (user_id, name, kind) VALUES
+  ((SELECT min(id) FROM users), '食費', 'expense'),
+  ((SELECT min(id) FROM users), '日用品', 'expense'),
+  ((SELECT min(id) FROM users), '光熱費', 'expense'),
+  ((SELECT min(id) FROM users), '上限の三十文字まで使ったカテゴリの名前で、折り返しを確かめる', 'expense'),
+  ((SELECT min(id) FROM users), '給与', 'income'),
+  ((SELECT min(id) FROM users), '臨時収入', 'income');
 
 INSERT INTO transactions (user_id, occurred_at, kind, amount, memo, created_at, updated_at) VALUES
   -- Two months ago

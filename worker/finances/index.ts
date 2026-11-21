@@ -30,10 +30,7 @@ const finances = new Hono<AppEnv>()
     return c.json(transaction)
   })
   .delete('/transactions/:id', idParamValidator, async (c) => {
-    const deleted = await deleteTransaction(db, c.get('user').id, c.req.valid('param').id)
-    if (!deleted) {
-      return c.json({ error: 'Not found' }, 404)
-    }
+    await deleteTransaction(db, c.get('user').id, c.req.valid('param').id)
     return c.body(null, 204)
   })
   .get('/categories', async (c) => {
@@ -66,10 +63,7 @@ const finances = new Hono<AppEnv>()
     }
   })
   .delete('/categories/:id', idParamValidator, async (c) => {
-    const deleted = await deleteCategory(db, c.get('user').id, c.req.valid('param').id)
-    if (!deleted) {
-      return c.json({ error: 'Not found' }, 404)
-    }
+    await deleteCategory(db, c.get('user').id, c.req.valid('param').id)
     return c.body(null, 204)
   })
 

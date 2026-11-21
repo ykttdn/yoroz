@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onMounted, ref, useTemplateRef } from 'vue'
+import { until } from '@vueuse/core'
+import { nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
 
 import { MAX_AMOUNT, MAX_MEMO_LENGTH } from '../../worker/finances/limits'
 import { api, isNotFound, ResponseError } from '../api'
@@ -22,6 +23,16 @@ const amount = ref<number | ''>(transaction?.amount ?? '')
 const occurredAt = ref(toDateTimeLocal(transaction ? new Date(transaction.occurredAt) : new Date()))
 const memo = ref(transaction?.memo ?? '')
 
+const memoTextarea = useTemplateRef('memoTextarea')
+
+watch(memo, () => {
+  memoTextarea.value?.setCustomValidity(
+    memo.value.length > MAX_MEMO_LENGTH ? `${MAX_MEMO_LENGTH}文字以内で入力してください` : '',
+  )
+})
+
+const submitButton = useTemplateRef('submitButton')
+
 const queryClient = useQueryClient()
 
 const { mutate, isPending, isError, error } = useMutation({
@@ -42,13 +53,30 @@ const { mutate, isPending, isError, error } = useMutation({
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
   },
-  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
-  onError: (mutationError) => {
+  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it. The fetch is
+  // awaited since isPending stays true until onError returns, which keeps the buttons disabled. Cancelling before the
+  // fetch ends would let FinancesView focus the transaction's menu button that the fetch then removes
+  onError: async (mutationError) => {
     if (isNotFound(mutationError)) {
-      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+      await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+    }
+    // Moves focus only when it fell out of the dialog along with the disabled submit button. (When the form was
+    // submitted with Enter, focus stays in the dialog, since the input that has it is never disabled.)
+    // focusSubmitButtonOnceSettled isn't awaited, since it waits for isPending, which turns false only once onError
+    // returns
+    if (!dialog.value?.contains(document.activeElement)) {
+      focusSubmitButtonOnceSettled()
     }
   },
 })
+
+// onError runs before isPending turns false, while the submit button is still disabled, and the button takes focus
+// only once the render that follows enables it
+const focusSubmitButtonOnceSettled = async () => {
+  await until(isPending).toBe(false)
+  await nextTick()
+  submitButton.value?.focus()
+}
 
 const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
 </script>
@@ -131,8 +159,8 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
         >メモ</label>
         <textarea
           id="transaction-memo"
+          ref="memoTextarea"
           v-model="memo"
-          :maxlength="MAX_MEMO_LENGTH"
           class="textarea w-full"
         />
       </div>
@@ -153,6 +181,7 @@ const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
           キャンセル
         </button>
         <button
+          ref="submitButton"
           type="submit"
           class="btn btn-primary"
           :disabled="isPending"

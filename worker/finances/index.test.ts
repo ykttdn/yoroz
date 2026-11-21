@@ -339,26 +339,24 @@ describe('/api/finances', () => {
       expect(await list.json()).toEqual([expect.objectContaining({ id: otherId })])
     })
 
-    it('does not find a transaction of another user', async () => {
+    it('keeps a transaction of another user, answering as if it were gone', async () => {
       const alice = await signedInUser('alice@example.com')
       const bob = await signedInUser('bob@example.com')
       const transactionId = await insertTransaction(bob.id, '2026-09-27T01:30:00.000Z')
 
       const res = await transactionsApi(alice)[':id'].$delete({ param: { id: String(transactionId) } })
 
-      expect(res.status).toBe(404)
-      expect(await res.json()).toEqual({ error: 'Not found' })
+      expect(res.status).toBe(204)
       const list = await transactionsApi(bob).$get({ query: { month: '2026-09' } })
       expect(await list.json()).toEqual([expect.objectContaining({ id: transactionId })])
     })
 
-    it('does not find a transaction that does not exist', async () => {
+    it('succeeds for a transaction that does not exist', async () => {
       const alice = await signedInUser('alice@example.com')
 
       const res = await transactionsApi(alice)[':id'].$delete({ param: { id: '1' } })
 
-      expect(res.status).toBe(404)
-      expect(await res.json()).toEqual({ error: 'Not found' })
+      expect(res.status).toBe(204)
     })
 
     it.each(malformedIds)('does not find a transaction for an id written as %s', async (_, write) => {
@@ -670,7 +668,7 @@ describe('/api/finances', () => {
       expect(await transactionCategoryId(otherTransactionId)).toBe(otherId)
     })
 
-    it('does not find a category of another user and keeps its transactions in it', async () => {
+    it('keeps a category of another user and its transactions in it, answering as if it were gone', async () => {
       const alice = await signedInUser('alice@example.com')
       const bob = await signedInUser('bob@example.com')
       const categoryId = await insertCategory(bob.id, 'Test category A')
@@ -678,20 +676,18 @@ describe('/api/finances', () => {
 
       const res = await categoriesApi(alice)[':id'].$delete({ param: { id: String(categoryId) } })
 
-      expect(res.status).toBe(404)
-      expect(await res.json()).toEqual({ error: 'Not found' })
+      expect(res.status).toBe(204)
       const list = await categoriesApi(bob).$get()
       expect(await list.json()).toEqual([expect.objectContaining({ id: categoryId })])
       expect(await transactionCategoryId(transactionId)).toBe(categoryId)
     })
 
-    it('does not find a category that does not exist', async () => {
+    it('succeeds for a category that does not exist', async () => {
       const alice = await signedInUser('alice@example.com')
 
       const res = await categoriesApi(alice)[':id'].$delete({ param: { id: '1' } })
 
-      expect(res.status).toBe(404)
-      expect(await res.json()).toEqual({ error: 'Not found' })
+      expect(res.status).toBe(204)
     })
 
     it.each(malformedIds)('does not find a category for an id written as %s', async (_, write) => {

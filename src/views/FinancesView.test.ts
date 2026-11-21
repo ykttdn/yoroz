@@ -253,6 +253,15 @@ describe('FinancesView', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('明細を読み込めませんでした。')
   })
 
+  it('opens the category modal from the category button', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json([]))
+    const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
+
+    await getButtonByText(wrapper, 'カテゴリ').trigger('click')
+
+    expect(wrapper.get('#categories-modal-title').text()).toBe('カテゴリ')
+  })
+
   it('fetches the month again once a transaction is added from the modal', async () => {
     // The responses carry no transactions, since only the requests and the closing of the modal are checked
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
@@ -345,11 +354,11 @@ describe('FinancesView', () => {
       expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
 
-    it('fetches the month again when the transaction to edit was already deleted', async () => {
+    it('fetches the month again, keeping the buttons disabled, for an already deleted transaction', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
         .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+        .mockImplementationOnce(() => new Promise(() => {}))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
       await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
@@ -361,6 +370,7 @@ describe('FinancesView', () => {
         expect.stringMatching(/\/api\/finances\/transactions\/2$/),
         expect.stringContaining('/api/finances/transactions?month=2026-09'),
       ])
+      expect(getButtonByText(wrapper.get('dialog'), 'キャンセル').attributes()).toHaveProperty('disabled')
     })
 
     it('focuses the add button once the edit modal is cancelled for a transaction found to be deleted', async () => {
@@ -409,39 +419,6 @@ describe('FinancesView', () => {
       await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
       await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
       await flushPromises()
-
-      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
-    })
-
-    it('fetches the month again when the transaction to delete was already deleted', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch')
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
-        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
-      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
-
-      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
-      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
-      await flushPromises()
-
-      expect(requestedUrls(fetchSpy)).toEqual([
-        expect.stringContaining('/api/finances/transactions?month=2026-09'),
-        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
-        expect.stringContaining('/api/finances/transactions?month=2026-09'),
-      ])
-    })
-
-    it('focuses the add button once the delete modal is cancelled for a transaction found to be deleted', async () => {
-      vi.spyOn(globalThis, 'fetch')
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
-        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
-      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
-
-      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
-      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
-      await flushPromises()
-      await getButtonByText(wrapper.get('dialog'), 'キャンセル').trigger('click')
 
       expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
