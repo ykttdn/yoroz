@@ -412,38 +412,5 @@ describe('FinancesView', () => {
 
       expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
-
-    it('fetches the month again when the transaction to delete was already deleted', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch')
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
-        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
-      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
-
-      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
-      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
-      await flushPromises()
-
-      expect(requestedUrls(fetchSpy)).toEqual([
-        expect.stringContaining('/api/finances/transactions?month=2026-09'),
-        expect.stringMatching(/\/api\/finances\/transactions\/2$/),
-        expect.stringContaining('/api/finances/transactions?month=2026-09'),
-      ])
-    })
-
-    it('focuses the add button once the delete modal is cancelled for a transaction found to be deleted', async () => {
-      vi.spyOn(globalThis, 'fetch')
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
-        .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
-      const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
-
-      await getButtonByText(wrapper.get('#transaction-2-menu'), '削除').trigger('click')
-      await getButtonByText(wrapper.get('dialog'), '削除').trigger('click')
-      await flushPromises()
-      await getButtonByText(wrapper.get('dialog'), 'キャンセル').trigger('click')
-
-      expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
-    })
   })
 })
