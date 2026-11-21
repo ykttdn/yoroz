@@ -2,14 +2,11 @@ import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
 import { logger } from 'hono/logger'
 
+import { BOLD, CYAN, RESET } from './ansi'
 import api from './api'
 import auth from './auth'
 import { logWithTime } from './logWithTime'
 import type { AppEnv } from './types'
-
-const BOLD = '\x1b[1m'
-const CYAN = '\x1b[36m'
-const RESET = '\x1b[0m'
 
 const highlightMethodAndPath = (line: string) =>
   line.replace(/^(<--|-->) (\S+) (\S+)/, `$1 ${BOLD}$2${RESET} ${CYAN}$3${RESET}`)

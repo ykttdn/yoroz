@@ -1,0 +1,5 @@
+export const BOLD = '\x1b[1m'
+export const DIM = '\x1b[2m'
+export const CYAN = '\x1b[36m'
+export const MAGENTA = '\x1b[35m'
+export const RESET = '\x1b[0m'
