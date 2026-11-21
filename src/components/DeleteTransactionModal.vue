@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { onMounted, useTemplateRef } from 'vue'
+import { until } from '@vueuse/core'
+import { nextTick, onMounted, useTemplateRef } from 'vue'
 
 import { api, ResponseError } from '../api'
 import { usePreventCloseWhilePending } from '../composables/usePreventCloseWhilePending'
@@ -14,6 +15,8 @@ const emit = defineEmits<{ close: [] }>()
 const dialog = useTemplateRef('dialog')
 
 onMounted(() => dialog.value?.showModal())
+
+const cancelButton = useTemplateRef('cancelButton')
 
 const queryClient = useQueryClient()
 
@@ -30,7 +33,18 @@ const { mutate, isPending, isError } = useMutation({
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
   },
+  onError: () => {
+    focusCancelButtonOnceSettled()
+  },
 })
+
+// Disabling the delete button while pending leaves focus on the body. onError runs before isPending turns false,
+// while the cancel button is still disabled, and the button takes focus only once the render that follows enables it
+const focusCancelButtonOnceSettled = async () => {
+  await until(isPending).toBe(false)
+  await nextTick()
+  cancelButton.value?.focus()
+}
 
 const preventCloseWhilePending = usePreventCloseWhilePending(isPending)
 
@@ -79,6 +93,7 @@ const amountFormat = new Intl.NumberFormat('ja-JP')
       </p>
       <div class="modal-action justify-between">
         <button
+          ref="cancelButton"
           type="button"
           class="btn btn-ghost"
           :disabled="isPending"

@@ -135,6 +135,30 @@ describe('TransactionModal', () => {
     })
   })
 
+  it('focuses the submit button when saving fails after focus fell to the body', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }))
+    const wrapper = mountTransactionModal({ transaction: transactionToEdit })
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(getButtonByText(wrapper, '保存').element)
+  })
+
+  it('keeps focus in the input the form was submitted from when saving fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }))
+    const wrapper = mountTransactionModal({ transaction: transactionToEdit })
+
+    wrapper.get<HTMLInputElement>('#transaction-amount').element.focus()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('#transaction-amount').element)
+  })
+
   describe('while the request is pending', () => {
     it('disables the submit and cancel buttons', async () => {
       vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
