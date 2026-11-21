@@ -354,11 +354,11 @@ describe('FinancesView', () => {
       expect(document.activeElement).toBe(getButtonByText(wrapper, '明細を追加').element)
     })
 
-    it('fetches the month again when the transaction to edit was already deleted', async () => {
+    it('fetches the month again, keeping the buttons disabled, for an already deleted transaction', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
         .mockImplementationOnce(async () => Response.json([expenseOnSeptember2, expenseOnSeptember1]))
         .mockImplementationOnce(async () => new Response(null, { status: 404 }))
-        .mockImplementationOnce(async () => Response.json([expenseOnSeptember2]))
+        .mockImplementationOnce(() => new Promise(() => {}))
       const { wrapper } = await mountFinancesViewAt('/finances?month=2026-09')
 
       await getButtonByText(wrapper.get('#transaction-2-menu'), '編集').trigger('click')
@@ -370,6 +370,7 @@ describe('FinancesView', () => {
         expect.stringMatching(/\/api\/finances\/transactions\/2$/),
         expect.stringContaining('/api/finances/transactions?month=2026-09'),
       ])
+      expect(getButtonByText(wrapper.get('dialog'), 'キャンセル').attributes()).toHaveProperty('disabled')
     })
 
     it('focuses the add button once the edit modal is cancelled for a transaction found to be deleted', async () => {

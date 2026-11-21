@@ -42,10 +42,12 @@ const { mutate, isPending, isError, error } = useMutation({
     await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     dialog.value?.close()
   },
-  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it
-  onError: (mutationError) => {
+  // A 404 means the transaction was deleted elsewhere, so the list is fetched again to stop showing it. The fetch is
+  // awaited since isPending stays true until onError returns, which keeps the buttons disabled. Cancelling before the
+  // fetch ends would let FinancesView focus the transaction's menu button that the fetch then removes
+  onError: async (mutationError) => {
     if (isNotFound(mutationError)) {
-      queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
+      await queryClient.invalidateQueries({ queryKey: ['finances', 'transactions'] })
     }
   },
 })
